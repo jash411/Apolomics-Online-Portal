@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
 
 const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
     first_name: '',
     last_name: '',
     user_type: 'student'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -27,38 +27,37 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const result = await register(formData);
-      
       if (result.success) {
         navigate('/dashboard');
       } else {
-        // Handle different error formats
-        if (typeof result.error === 'object') {
-          // Django returns error object with field names
-          const errorMessages = Object.values(result.error).flat();
-          setError(errorMessages.join(', '));
-        } else {
-          setError(result.error || 'Registration failed');
-        }
+        setError(result.error || 'Registration failed');
       }
     } catch (error) {
-      setError('An unexpected error occurred');
+      setError('An error occurred during registration');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container">
+    <div className="container" style={{ marginTop: '100px' }}>
       <div className="form-container">
-        <h1>Register</h1>
-        {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
+        <h2>Create Your Account</h2>
+        {error && <div className="error-message">{error}</div>}
+        
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Username:</label>
+            <label>Username</label>
             <input
               type="text"
               name="username"
@@ -67,8 +66,9 @@ const Register = () => {
               required
             />
           </div>
+
           <div className="form-group">
-            <label>Email:</label>
+            <label>Email</label>
             <input
               type="email"
               name="email"
@@ -77,8 +77,46 @@ const Register = () => {
               required
             />
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="form-group">
+              <label>First Name</label>
+              <input
+                type="text"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Last Name</label>
+              <input
+                type="text"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          </div>
+
           <div className="form-group">
-            <label>Password:</label>
+            <label>Account Type</label>
+            <select
+              name="user_type"
+              value={formData.user_type}
+              onChange={handleChange}
+              required
+            >
+              <option value="student">Student</option>
+              <option value="instructor">Instructor</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label>Password</label>
             <input
               type="password"
               name="password"
@@ -87,45 +125,29 @@ const Register = () => {
               required
             />
           </div>
+
           <div className="form-group">
-            <label>First Name:</label>
+            <label>Confirm Password</label>
             <input
-              type="text"
-              name="first_name"
-              value={formData.first_name}
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
               onChange={handleChange}
+              required
             />
           </div>
-          <div className="form-group">
-            <label>Last Name:</label>
-            <input
-              type="text"
-              name="last_name"
-              value={formData.last_name}
-              onChange={handleChange}
-            />
-          </div>
-          <div className="form-group">
-            <label>User Type:</label>
-            <select
-              name="user_type"
-              value={formData.user_type}
-              onChange={handleChange}
-            >
-              <option value="student">Student</option>
-              <option value="instructor">Instructor</option>
-            </select>
-          </div>
+          
           <button 
             type="submit" 
-            className="btn btn-primary" 
-            style={{ width: '100%' }}
+            className="btn btn-primary"
             disabled={loading}
+            style={{ width: '100%' }}
           >
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
-        <p style={{ marginTop: '15px', textAlign: 'center' }}>
+        
+        <p style={{ textAlign: 'center', marginTop: '1rem' }}>
           Already have an account? <Link to="/login">Login here</Link>
         </p>
       </div>
