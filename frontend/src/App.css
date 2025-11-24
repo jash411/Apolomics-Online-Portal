@@ -91,7 +91,8 @@ body {
   position: relative;
 }
 
-.navbar-brand::after {
+/* this code use to add line ffect in the logo and text */
+/* .navbar-brand::after {
   content: '';
   position: absolute;
   bottom: 1.2rem;
@@ -100,10 +101,117 @@ body {
   height: 2px;
   background: var(--accent-gradient);
   transition: var(--transition);
-}
+} */
 
 .navbar-brand:hover::after {
   width: 100%;
+}
+/* Logo and Brand Styles */
+.navbar-brand-container {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  padding: 0.5rem;
+  border-radius: 12px;
+}
+
+.navbar-brand:hover {
+  transform: translateY(-2px);
+}
+
+.navbar-logo {
+  width: 65px;
+  height: 65px;
+  object-fit: contain;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+  /* border: 2px solid transparent; */
+  background: linear-gradient(135deg, #ffffff, #f8fafc) padding-box,
+              linear-gradient(135deg, #667eea, #764ba2) border-box;
+}
+
+.navbar-brand:hover .navbar-logo {
+  transform: scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 6px 12px rgba(99, 102, 241, 0.3));
+  animation: logoGlow 1.5s ease-in-out;
+}
+
+@keyframes logoGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+  }
+}
+
+.brand-text {
+  font-size: 1.4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+  transition: all 0.3s ease;
+}
+
+.navbar-brand:hover .brand-text {
+  letter-spacing: -0.01em;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive Logo */
+@media (max-width: 1024px) {
+  .brand-text {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-logo {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .brand-text {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand {
+    gap: 0.75rem;
+  }
+  
+  .brand-text {
+    font-size: 1rem;
+  }
+  
+  .navbar-logo {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Dark Mode Support for Logo */
+@media (prefers-color-scheme: dark) {
+  .navbar-logo {
+    background: linear-gradient(135deg, #1e293b, #334155) padding-box,
+                linear-gradient(135deg, #667eea, #764ba2) border-box;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  }
 }
 
 .navbar-nav {

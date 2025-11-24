@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './Home.css';
+import logo from './logo.png';
 
 const Home = () => {
   const [news, setNews] = useState([]);
@@ -98,14 +99,31 @@ const Home = () => {
               </div>
             </div>
           </div>
-          <div className="hero-image">
+          
+
+{/* <div className="hero-image">
             <div className="floating-card">
               <div className="card-content">
                 <h3>Ready to Defend Your Faith?</h3>
                 <p>Join thousands of students learning to articulate and defend Christian truth claims</p>
               </div>
             </div>
-          </div>
+          </div> */}
+
+
+<div className="hero-image">
+  <div className="floating-card">
+    <div className="card-content">
+        <h3>Ready to Defend Your Faith?</h3>
+        <p>Join thousands of students learning to articulate and defend Christian truth claims</p>
+      </div>
+      <div className="hero-logo-container">
+        <img src={logo} alt="Apolomics Logo" className="hero-logo" />
+      </div>
+    </div>
+  </div>
+
+
         </div>
       </section>
 

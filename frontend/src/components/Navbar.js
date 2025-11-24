@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import logo from './logo.png';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -26,9 +27,13 @@ const Navbar = () => {
   return (
     <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
       <div className="navbar-container">
-        <Link to="/" className="navbar-brand">
-          Apolomics
-        </Link>
+        {/* Logo and Brand Name */}
+        <div className="navbar-brand-container">
+          <Link to="/" className="navbar-brand">
+            <img src={logo} alt="Apolomics Logo" className="navbar-logo" />
+            <span className="brand-text">Apolomics Apologetical School</span>
+          </Link>
+        </div>
         
         <ul className="navbar-nav">
           <li>

@@ -36,7 +36,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 3rem;
-  padding-top: 150px;
+  padding-top: 30px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4rem;
@@ -417,4 +417,31 @@
   .features-grid {
     grid-template-columns: 1fr;
   }
+}
+/* Hero Logo Styles - Clean version */
+.hero-logo-container {
+  display: flex;
+  justify-content: center;
+  /* margin-top: 1rem; */
+}
+
+.hero-logo {
+  width: 300px;
+  height: 300px;
+  object-fit: contain;
+  transition: all 0.4s ease;
+}
+
+.hero-logo:hover {
+  transform: scale(1.1);
+}
+
+/* Optional: Add animation to the logo */
+@keyframes gentlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.hero-logo {
+  animation: gentlePulse 4s ease-in-out infinite;
 }
