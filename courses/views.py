@@ -1,111 +1,258 @@
-﻿from rest_framework import viewsets, status, permissions
+﻿from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Course, VideoLecture, Enrollment, StudentProgress
-from .serializers import CourseSerializer, VideoLectureSerializer, EnrollmentSerializer, StudentProgressSerializer, CourseCreateSerializer
-
+from django.db.models import Q
+from .models import *
+from .serializers import *
 
 class CourseViewSet(viewsets.ModelViewSet):
-    queryset = Course.objects.all()
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return CourseCreateSerializer
-        return CourseSerializer
-
-    def perform_create(self, serializer):
-        serializer.save(instructor=self.request.user)
-
+    queryset = Course.objects.filter(is_published=True)
+    serializer_class = CourseSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
     @action(detail=False, methods=['get'])
     def my_courses(self, request):
-        user = request.user
-        if user.user_type == 'instructor':
-            courses = Course.objects.filter(instructor=user)
-        else:
-            enrollments = Enrollment.objects.filter(student=user).select_related('course')
-            courses = [enrollment.course for enrollment in enrollments]
-        
-        serializer = self.get_serializer(courses, many=True)
+        enrolled_courses = Course.objects.filter(
+            enrollments__student=request.user
+        )
+        serializer = self.get_serializer(enrolled_courses, many=True)
         return Response(serializer.data)
-
+    
     @action(detail=True, methods=['post'])
     def enroll(self, request, pk=None):
         course = self.get_object()
-        student = request.user
-
-        if student.user_type != 'student':
-            return Response(
-                {'error': 'Only students can enroll in courses'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        existing_enrollment = Enrollment.objects.filter(student=student, course=course).first()
-        if existing_enrollment:
-            return Response(
-                {'error': 'Already enrolled in this course'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        enrollment = Enrollment.objects.create(student=student, course=course)
-        serializer = EnrollmentSerializer(enrollment)
-        return Response({
-            'message': 'Successfully enrolled in course',
-            'enrollment': serializer.data
-        }, status=status.HTTP_201_CREATED)
-
+        enrollment, created = Enrollment.objects.get_or_create(
+            student=request.user,
+            course=course
+        )
+        return Response({'status': 'enrolled' if created else 'already enrolled'})
+    
     @action(detail=True, methods=['get'])
     def enrollment_status(self, request, pk=None):
         course = self.get_object()
-        user = request.user
-        
-        if user.user_type != 'student':
-            return Response({'is_enrolled': False})
-            
-        is_enrolled = Enrollment.objects.filter(student=user, course=course).exists()
+        is_enrolled = Enrollment.objects.filter(
+            student=request.user,
+            course=course
+        ).exists()
         return Response({'is_enrolled': is_enrolled})
-
 
 class VideoLectureViewSet(viewsets.ModelViewSet):
     queryset = VideoLecture.objects.all()
     serializer_class = VideoLectureSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-
-
-class EnrollmentViewSet(viewsets.ModelViewSet):
-    queryset = Enrollment.objects.all()
-    serializer_class = EnrollmentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return Enrollment.objects.filter(student=self.request.user)
-
+    
+    def get_serializer_context(self):
+        """Include request in serializer context for absolute URLs"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
 class StudentProgressViewSet(viewsets.ModelViewSet):
     queryset = StudentProgress.objects.all()
     serializer_class = StudentProgressSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return StudentProgress.objects.filter(student=self.request.user)
-
+    
     @action(detail=False, methods=['post'])
-    def mark_watched(self, request):
-        video_id = request.data.get('video_id')
+    def update_progress(self, request):
+        video_lecture_id = request.data.get('video_lecture')
+        progress = request.data.get('progress', 0)
+        watched = request.data.get('watched', False)
+        
         try:
-            video = VideoLecture.objects.get(id=video_id)
-            progress, created = StudentProgress.objects.get_or_create(
+            video_lecture = VideoLecture.objects.get(id=video_lecture_id)
+            progress_obj, created = StudentProgress.objects.get_or_create(
                 student=request.user,
-                video_lecture=video,
-                defaults={'watched': True}
+                video_lecture=video_lecture
             )
-            if not created:
-                progress.watched = True
-                progress.save()
+            progress_obj.progress = progress
+            if watched:
+                progress_obj.watched = True
+            progress_obj.save()
             
-            return Response({'status': 'marked as watched'})
+            # Check if all lectures are completed
+            self.check_course_completion(request.user, video_lecture.course)
+            
+            return Response({'status': 'progress updated'})
         except VideoLecture.DoesNotExist:
-            return Response(
-                {'error': 'Video not found'}, 
-                status=status.HTTP_404_NOT_FOUND
+            return Response({'error': 'Video lecture not found'}, status=404)
+    
+    def check_course_completion(self, student, course):
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if total_lectures > 0 and completed_lectures == total_lectures:
+            enrollment = Enrollment.objects.get(student=student, course=course)
+            if not enrollment.completed:
+                enrollment.completed = True
+                enrollment.completed_at = timezone.now()
+                enrollment.save()
+
+class AssignmentViewSet(viewsets.ModelViewSet):
+    queryset = Assignment.objects.all()
+    serializer_class = AssignmentSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = AssignmentSubmission.objects.all()
+    serializer_class = AssignmentSubmissionSerializer
+    
+    def get_queryset(self):
+        queryset = AssignmentSubmission.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        elif self.request.user.user_type == 'instructor':
+            queryset = queryset.filter(assignment__course__instructor=self.request.user)
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        submission = self.get_object()
+        score = request.data.get('score')
+        feedback = request.data.get('feedback')
+        status = request.data.get('status')
+        
+        submission.score = score
+        submission.feedback = feedback
+        submission.status = status
+        submission.reviewed_by = request.user
+        submission.reviewed_at = timezone.now()
+        submission.save()
+        
+        return Response({'status': 'submission reviewed'})
+
+class ExamViewSet(viewsets.ModelViewSet):
+    queryset = Exam.objects.filter(is_active=True)
+    serializer_class = ExamSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class ExamSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = ExamSubmission.objects.all()
+    serializer_class = ExamSubmissionSerializer
+    
+    def create(self, request):
+        exam_id = request.data.get('exam')
+        answers = request.data.get('answers', [])
+        
+        try:
+            exam = Exam.objects.get(id=exam_id)
+            submission, created = ExamSubmission.objects.get_or_create(
+                exam=exam,
+                student=request.user
             )
+            
+            if not created:
+                return Response({'error': 'Exam already attempted'}, status=400)
+            
+            # Calculate score
+            total_score = 0
+            earned_score = 0
+            
+            for answer_data in answers:
+                question = Question.objects.get(id=answer_data['question_id'])
+                total_score += question.score
+                
+                if question.question_type == 'multiple_choice':
+                    selected_choice = Choice.objects.get(id=answer_data['selected_choice_id'])
+                    is_correct = selected_choice.is_correct
+                    if is_correct:
+                        earned_score += question.score
+                elif question.question_type == 'true_false':
+                    is_correct = (answer_data['answer_text'].lower() == str(question.choices.first().is_correct).lower())
+                    if is_correct:
+                        earned_score += question.score
+                
+                Answer.objects.create(
+                    exam_submission=submission,
+                    question=question,
+                    selected_choice=selected_choice if question.question_type == 'multiple_choice' else None,
+                    answer_text=answer_data.get('answer_text', ''),
+                    is_correct=is_correct
+                )
+            
+            submission.score = (earned_score / total_score) * 100 if total_score > 0 else 0
+            submission.passed = submission.score >= exam.passing_score
+            submission.submitted_at = timezone.now()
+            submission.save()
+            
+            # Check if certificate should be issued
+            if submission.passed:
+                self.issue_certificate(request.user, exam.course)
+            
+            return Response({
+                'score': submission.score,
+                'passed': submission.passed,
+                'total_questions': len(answers),
+                'correct_answers': earned_score // 10  # Assuming each question is 10 points
+            })
+        
+        except Exam.DoesNotExist:
+            return Response({'error': 'Exam not found'}, status=404)
+    
+    def issue_certificate(self, student, course):
+        # Check if assignment is approved (if exists)
+        assignment = Assignment.objects.filter(course=course).first()
+        if assignment:
+            submission = AssignmentSubmission.objects.filter(
+                assignment=assignment,
+                student=student,
+                status='approved'
+            ).exists()
+            if not submission:
+                return
+        
+        # Check if all videos are watched
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if completed_lectures == total_lectures:
+            certificate, created = Certificate.objects.get_or_create(
+                student=student,
+                course=course
+            )
+            return certificate
+
+class CertificateViewSet(viewsets.ModelViewSet):
+    queryset = Certificate.objects.all()
+    serializer_class = CertificateSerializer
+    
+    def get_queryset(self):
+        queryset = Certificate.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        return queryset
+    
+class QuestionViewSet(viewsets.ModelViewSet):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
+    
+    def get_queryset(self):
+        queryset = Question.objects.all()
+        exam_id = self.request.query_params.get('exam_id')
+        if exam_id:
+            queryset = queryset.filter(exam_id=exam_id)
+        return queryset
+
+class ChoiceViewSet(viewsets.ModelViewSet):
+    queryset = Choice.objects.all()
+    serializer_class = ChoiceSerializer
+    
+    def get_queryset(self):
+        queryset = Choice.objects.all()
+        question_id = self.request.query_params.get('question_id')
+        if question_id:
+            queryset = queryset.filter(question_id=question_id)
+        return queryset    
+    
+    

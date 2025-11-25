@@ -13,6 +13,7 @@ import MyCourses from './pages/MyCourses';
 import CoursePlayer from './pages/CoursePlayer';
 import PlaceholderPage from './pages/PlaceHolderPage';
 import './App.css';
+import InstructorDashboard from './pages/InstructorDashboard';
 
 // Protected Route component - MOVE THIS BEFORE App function
 const ProtectedRoute = ({ children }) => {
@@ -78,6 +79,14 @@ function App() {
                   <ProtectedRoute>
                     <CoursePlayer />
                   </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/instructor-dashboard" 
+                element={
+                  <InstructorRoute>
+                    <InstructorDashboard />
+                  </InstructorRoute>
                 } 
               />
               

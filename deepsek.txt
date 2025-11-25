@@ -498,3 +498,2815 @@ echo "📁 Share PROJECT_SUMMARY.md in new chats to continue seamlessly"
 ```
 
 Now you can continue this project in any new chat by sharing the project summary!
+
+
+
+
+-----------------------------------------------------------------------------
+------------------------------
+
+
+am working a e learnin platform that uses front end react js and backend django 
+i work totall until the course registered and shown my main app.js code is
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import Courses from './pages/Courses';
+import CreateCourse from './pages/CreateCourse';
+import MyCourses from './pages/MyCourses';
+import CoursePlayer from './pages/CoursePlayer';
+import PlaceholderPage from './pages/PlaceHolderPage';
+import './App.css';
+import InstructorDashboard from './pages/InstructorDashboard';
+
+// Protected Route component - MOVE THIS BEFORE App function
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+  
+  return user ? children : <Navigate to="/login" />;
+};
+
+// Role-based protected route - MOVE THIS BEFORE App function
+const InstructorRoute = ({ children }) => {
+  const { user, isInstructor, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+  
+  return user && isInstructor() ? children : <Navigate to="/dashboard" />;
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Navbar />
+          <main className="main-content">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/courses" element={<Courses />} />
+              <Route 
+                path="/courses/create" 
+                element={
+                  <InstructorRoute>
+                    <CreateCourse />
+                  </InstructorRoute>
+                } 
+              />
+              <Route 
+                path="/my-courses" 
+                element={
+                  <ProtectedRoute>
+                    <MyCourses />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/learn/:courseId" 
+                element={
+                  <ProtectedRoute>
+                    <CoursePlayer />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/instructor-dashboard" 
+                element={
+                  <InstructorRoute>
+                    <InstructorDashboard />
+                  </InstructorRoute>
+                } 
+              />
+              
+              {/* Add these routes for footer links */}
+              <Route path="/about" element={<PlaceholderPage />} />
+              <Route path="/faculty" element={<PlaceholderPage />} />
+              <Route path="/resources" element={<PlaceholderPage />} />
+              <Route path="/blog" element={<PlaceholderPage />} />
+              <Route path="/courses/certificate" element={<PlaceholderPage />} />
+              <Route path="/courses/diploma" element={<PlaceholderPage />} />
+              <Route path="/courses/masterclass" element={<PlaceholderPage />} />
+              <Route path="/courses/workshops" element={<PlaceholderPage />} />
+              <Route path="/scholarships" element={<PlaceholderPage />} />
+              <Route path="/admissions" element={<PlaceholderPage />} />
+              <Route path="/privacy" element={<PlaceholderPage />} />
+              <Route path="/terms" element={<PlaceholderPage />} />
+              <Route path="/cookies" element={<PlaceholderPage />} />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+
+
+
+when i enrol the course it works and also i see the course in mycourse lists the code is mycourse.js
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import './MyCourses.css';
+
+const MyCourses = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  useEffect(() => {
+    if (!token) {
+      setError('Please log in to view your courses.');
+      setLoading(false);
+      return;
+    }
+    fetchMyCourses();
+  }, [token, user]);
+
+  const fetchMyCourses = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('http://127.0.0.1:8000/api/courses/', {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const coursesData = await response.json();
+      
+      const availableCourses = coursesData.map(course => ({
+        id: course.id,
+        title: course.title || 'Untitled Course',
+        description: course.description || 'No description available',
+        thumbnail: course.thumbnail,
+        instructor_name: course.instructor_name || (course.instructor && course.instructor.username) || 'Unknown Instructor',
+        level: course.level || 'Beginner',
+        duration: course.duration || 0,
+        progress_percentage: Math.floor(Math.random() * 100), // Simulated progress
+        price: course.price || 0,
+        category: course.category || 'Development',
+        rating: course.rating || 4.5,
+        students: course.students || Math.floor(Math.random() * 1000),
+        is_published: course.is_published !== false
+      })).filter(course => course.is_published);
+
+      setCourses(availableCourses);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setError(error.message || 'Failed to load courses. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleContinueLearning = (courseId) => {
+    navigate(`/learn/${courseId}`);
+  };
+
+  const handleViewCourse = (courseId) => {
+    navigate(`/course/${courseId}`);
+  };
+
+  const filteredCourses = courses.filter(course => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'in-progress') return course.progress_percentage > 0 && course.progress_percentage < 100;
+    if (activeFilter === 'completed') return course.progress_percentage === 100;
+    if (activeFilter === 'not-started') return course.progress_percentage === 0;
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="modern-courses">
+        <div className="courses-skeleton">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="course-skeleton">
+              <div className="skeleton-image"></div>
+              <div className="skeleton-content">
+                <div className="skeleton-line short"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-actions"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="modern-courses">
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h2>Unable to Load Courses</h2>
+          <p>{error}</p>
+          <button onClick={fetchMyCourses} className="modern-btn primary">
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modern-courses">
+      {/* Header Section */}
+      <div className="courses-hero">
+        <div className="hero-content">
+          <h1>My Learning Journey</h1>
+          <p>Continue where you left off and discover new skills</p>
+          <div className="hero-stats">
+            <div className="stat">
+              <span className="stat-number">{courses.length}</span>
+              <span className="stat-label">Total Courses</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage === 100).length}
+              </span>
+              <span className="stat-label">Completed</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage > 0 && c.progress_percentage < 100).length}
+              </span>
+              <span className="stat-label">In Progress</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="courses-filters">
+        <div className="filter-buttons">
+          {[
+            { key: 'all', label: 'All Courses', icon: '📚' },
+            { key: 'in-progress', label: 'In Progress', icon: '🎯' },
+            { key: 'completed', label: 'Completed', icon: '✅' },
+            { key: 'not-started', label: 'Not Started', icon: '🆕' }
+          ].map(filter => (
+            <button
+              key={filter.key}
+              className={`filter-btn ${activeFilter === filter.key ? 'active' : ''}`}
+              onClick={() => setActiveFilter(filter.key)}
+            >
+              <span className="filter-icon">{filter.icon}</span>
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Courses Grid */}
+      <div className="courses-container">
+        {filteredCourses.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🎓</div>
+            <h3>No courses found</h3>
+            <p>No courses match your current filter selection.</p>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className="modern-btn secondary"
+            >
+              View All Courses
+            </button>
+          </div>
+        ) : (
+          <div className="modern-courses-grid">
+            {filteredCourses.map(course => (
+              <div key={course.id} className="modern-course-card">
+                {/* Course Image */}
+                <div className="course-image-section">
+                  {course.thumbnail ? (
+                    <img src={course.thumbnail} alt={course.title} className="course-thumbnail" />
+                  ) : (
+                    <div className="course-thumbnail-placeholder">
+                      <span className="placeholder-icon">📚</span>
+                    </div>
+                  )}
+                  <div className="course-badges">
+                    {course.progress_percentage === 100 && (
+                      <span className="badge completed">Completed 🎉</span>
+                    )}
+                    {course.progress_percentage > 0 && course.progress_percentage < 100 && (
+                      <span className="badge in-progress">In Progress</span>
+                    )}
+                    <span className="badge level">{course.level}</span>
+                  </div>
+                  <div className="progress-overlay">
+                    <div className="progress-track">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${course.progress_percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="progress-text">{course.progress_percentage}% Complete</span>
+                  </div>
+                </div>
+
+                {/* Course Content */}
+                <div className="course-content-section">
+                  <div className="course-header">
+                    <h3 className="course-title">{course.title}</h3>
+                    <div className="course-meta">
+                      <span className="instructor">By {course.instructor_name}</span>
+                      <div className="course-rating">
+                        <span className="stars">⭐ {course.rating}</span>
+                        <span className="students">👥 {course.students}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="course-description">{course.description}</p>
+
+                  <div className="course-details">
+                    <div className="detail-item">
+                      <span className="detail-icon">⏱️</span>
+                      <span>{course.duration}h</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">📁</span>
+                      <span>{course.category}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">🎯</span>
+                      <span>{course.level}</span>
+                    </div>
+                  </div>
+
+                  {/* Course Actions */}
+                  <div className="course-actions">
+                    {course.progress_percentage === 0 ? (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary start-learning"
+                      >
+                        <span className="btn-icon">🚀</span>
+                        Start Learning
+                      </button>
+                    ) : course.progress_percentage === 100 ? (
+                      <button 
+                        onClick={() => handleViewCourse(course.id)}
+                        className="modern-btn success review-course"
+                      >
+                        <span className="btn-icon">📖</span>
+                        Review Course
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary continue-learning"
+                      >
+                        <span className="btn-icon">▶️</span>
+                        Continue ({course.progress_percentage}%)
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleViewCourse(course.id)}
+                      className="modern-btn ghost"
+                    >
+                      <span className="btn-icon">👁️</span>
+                      Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MyCourses;
+
+
+but am trying to make the system to accept in the backend or instructor authentication to add courses with part when the student see part one it opens part to untill the course finished then their is an assignment and final exam  the exam will be inserted and get result with in the system because the exam and its own answer will be feeded by the instructor  or by admin,
+ there is a full of code, list of them
+InstructorDashboard.js
+SequentialCoursePlayer.js 
+CoursePlayer.js
+AssignmentSubmission.js
+Certificate.js
+ExamComponent.js
+ModernVideoPlayer.js
+QuestionManager.js
+
+and all ofthem has their own Css files.
+
+so to make my code working properlly according to the instruction which part of my code would you like to see, and help me by generating the codes
+
+
+CoursePlayer.js
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import ModernVideoPlayer from '../components/ModernVideoPlayer';
+import './CoursePlayer.css';
+
+const CoursePlayer = () => {
+  const { courseId } = useParams();
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  
+  const [course, setCourse] = useState(null);
+  const [lectures, setLectures] = useState([]);
+  const [currentLecture, setCurrentLecture] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  // Use useCallback to memoize the function and fix ESLint warning
+  const fetchCourseData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch course details
+      const courseResponse = await fetch(`http://localhost:8000/api/courses/${courseId}/`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      if (!courseResponse.ok) {
+        throw new Error('Failed to fetch course');
+      }
+      
+      const courseData = await courseResponse.json();
+      setCourse(courseData);
+
+      // Fetch lectures for this course
+      const lecturesResponse = await fetch(`http://localhost:8000/api/video-lectures/?course_id=${courseId}`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      if (!lecturesResponse.ok) {
+        throw new Error('Failed to fetch lectures');
+      }
+      
+      const lecturesData = await lecturesResponse.json();
+      console.log('Fetched lectures:', lecturesData); // Debug log
+      
+      setLectures(lecturesData);
+      
+      // Set the first lecture as current if available
+      if (lecturesData.length > 0) {
+        setCurrentLecture(lecturesData[0]);
+      } else {
+        console.warn('No lectures found for this course');
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching course data:', error);
+      setLoading(false);
+    }
+  }, [courseId, token]); // Add dependencies
+
+  useEffect(() => {
+    fetchCourseData();
+  }, [fetchCourseData]); // Now fetchCourseData is stable
+
+  const handleProgressUpdate = async (progressPercent) => {
+    if (!currentLecture) return;
+    
+    try {
+      await fetch('http://localhost:8000/api/progress/update_progress/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({
+          video_lecture: currentLecture.id,
+          progress: progressPercent,
+          watched: progressPercent > 90
+        })
+      });
+      
+      setProgress(progressPercent);
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
+
+  const handleVideoComplete = async () => {
+    if (!currentLecture) return;
+    
+    try {
+      await fetch('http://localhost:8000/api/progress/update_progress/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({
+          video_lecture: currentLecture.id,
+          progress: 100,
+          watched: true
+        })
+      });
+      
+      setProgress(100);
+      
+      // Refresh course data to update unlock status
+      fetchCourseData();
+    } catch (error) {
+      console.error('Error marking as complete:', error);
+    }
+  };
+
+  const handleLectureSelect = (lecture) => {
+    setCurrentLecture(lecture);
+    setProgress(0);
+  };
+
+  if (loading) {
+    return (
+      <div className="course-player-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading course content...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="course-player-container">
+      <div className="course-player-header">
+        <button onClick={() => navigate('/courses')} className="back-button">
+          ← Back to Courses
+        </button>
+        <h1>{course?.title || 'Course Not Found'}</h1>
+        <p>{course?.description || 'No description available'}</p>
+      </div>
+
+      <div className="course-player-content">
+        {/* Video Player Section */}
+        <div className="video-section">
+          {currentLecture ? (
+            <ModernVideoPlayer
+              videoUrl={currentLecture.video_file}
+              title={currentLecture.title}
+              onProgress={handleProgressUpdate}
+              onComplete={handleVideoComplete}
+            />
+          ) : (
+            <div className="no-lecture">
+              <h3>No lecture selected</h3>
+              <p>Choose a lecture from the list to start learning</p>
+              {lectures.length === 0 && (
+                <div className="no-lectures-message">
+                  <p>📹 No lectures available for this course yet.</p>
+                  <p>Please check back later or contact the instructor.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Lectures List Section */}
+        <div className="lectures-section">
+          <div className="lectures-header">
+            <h3>Course Lectures</h3>
+            <span>{lectures.length} lecture{lectures.length !== 1 ? 's' : ''}</span>
+          </div>
+          
+          <div className="lectures-list">
+            {lectures.length === 0 ? (
+              <div className="empty-lectures">
+                <div className="empty-icon">📹</div>
+                <p>No lectures available</p>
+                <p>The instructor hasn't added any lectures yet.</p>
+              </div>
+            ) : (
+              lectures.map((lecture, index) => (
+                <div
+                  key={lecture.id}
+                  className={`lecture-item ${currentLecture?.id === lecture.id ? 'active' : ''}`}
+                  onClick={() => handleLectureSelect(lecture)}
+                >
+                  <div className="lecture-number">
+                    {index + 1}
+                  </div>
+                  <div className="lecture-info">
+                    <h4>{lecture.title}</h4>
+                    <p>{lecture.duration ? `${Math.floor(lecture.duration / 60)}:${(lecture.duration % 60).toString().padStart(2, '0')}` : '10:00'}</p>
+                  </div>
+                  <div className="lecture-status">
+                    {progress > 90 ? '✅' : '▶️'}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CoursePlayer;
+
+
+models.py
+from django.db import models
+from django.contrib.auth.models import User
+from users.models import User
+
+class Course(models.Model):
+    LEVEL_CHOICES = (
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced'),
+    )
+    
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    instructor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses_taught')
+    thumbnail = models.ImageField(upload_to='course_thumbnails/', null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='beginner')
+    duration = models.IntegerField(help_text="Duration in hours", default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_published = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return self.title
+
+class VideoLecture(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lectures')
+    title = models.CharField(max_length=200)
+    video_file = models.FileField(upload_to='video_lectures/')
+    duration = models.IntegerField(help_text="Duration in seconds", default=0)
+    order = models.IntegerField(default=0)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['order']
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class Enrollment(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['student', 'course']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.course.title}"
+
+class StudentProgress(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress')
+    video_lecture = models.ForeignKey(VideoLecture, on_delete=models.CASCADE, related_name='progress')
+    watched = models.BooleanField(default=False)
+    progress = models.FloatField(default=0.0)  # Percentage watched (0-100)
+    last_watched = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['student', 'video_lecture']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.video_lecture.title} ({self.progress}%)"
+
+class Assignment(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='assignments')
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    due_date = models.DateTimeField(null=True, blank=True)
+    max_score = models.IntegerField(default=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class AssignmentSubmission(models.Model):
+    STATUS_CHOICES = (
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assignment_submissions')
+    submission_file = models.FileField(upload_to='assignment_submissions/')
+    submission_text = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')
+    score = models.IntegerField(null=True, blank=True)
+    feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_assignments')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['assignment', 'student']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.assignment.title}"
+
+class Exam(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='course_exams')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    duration = models.IntegerField(help_text="Duration in minutes", default=60)
+    passing_score = models.IntegerField(default=70)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class Question(models.Model):
+    QUESTION_TYPES = (
+        ('multiple_choice', 'Multiple Choice'),
+        ('true_false', 'True/False'),
+        ('short_answer', 'Short Answer'),
+    )
+    
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES, default='multiple_choice')
+    order = models.IntegerField(default=0)
+    score = models.IntegerField(default=10)
+    
+    class Meta:
+        ordering = ['order']
+    
+    def __str__(self):
+        return f"Q{self.order}: {self.question_text[:50]}..."
+
+class Choice(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices')
+    choice_text = models.CharField(max_length=200)
+    is_correct = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.choice_text} ({'Correct' if self.is_correct else 'Incorrect'})"
+
+class ExamSubmission(models.Model):
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_submissions')
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    score = models.IntegerField(null=True, blank=True)
+    passed = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ['exam', 'student']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.exam.title} ({self.score or 'Not scored'})"
+
+class Answer(models.Model):
+    exam_submission = models.ForeignKey(ExamSubmission, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    selected_choice = models.ForeignKey(Choice, on_delete=models.CASCADE, null=True, blank=True)
+    answer_text = models.TextField(blank=True)
+    is_correct = models.BooleanField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"Answer for {self.question}"
+
+class Certificate(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certificates')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certificates')
+    certificate_id = models.CharField(max_length=20, unique=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    download_url = models.URLField(blank=True)
+    
+    class Meta:
+        unique_together = ['student', 'course']
+    
+    def __str__(self):
+        return f"Certificate {self.certificate_id} - {self.student.username}"
+
+    def save(self, *args, **kwargs):
+        if not self.certificate_id:
+            self.certificate_id = f"APL{self.course.id:03d}{self.student.id:04d}{self.issued_at.strftime('%y%m%d')}"
+        super().save(*args, **kwargs)
+
+this is my previous Courses/view.py code
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from .models import *
+from .serializers import *
+
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.filter(is_published=True)
+    serializer_class = CourseSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
+    @action(detail=False, methods=['get'])
+    def my_courses(self, request):
+        enrolled_courses = Course.objects.filter(
+            enrollments__student=request.user
+        )
+        serializer = self.get_serializer(enrolled_courses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def enroll(self, request, pk=None):
+        course = self.get_object()
+        enrollment, created = Enrollment.objects.get_or_create(
+            student=request.user,
+            course=course
+        )
+        return Response({'status': 'enrolled' if created else 'already enrolled'})
+    
+    @action(detail=True, methods=['get'])
+    def enrollment_status(self, request, pk=None):
+        course = self.get_object()
+        is_enrolled = Enrollment.objects.filter(
+            student=request.user,
+            course=course
+        ).exists()
+        return Response({'is_enrolled': is_enrolled})
+
+class VideoLectureViewSet(viewsets.ModelViewSet):
+    queryset = VideoLecture.objects.all()
+    serializer_class = VideoLectureSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
+    def get_queryset(self):
+        queryset = VideoLecture.objects.all()
+        course_id = self.request.query_params.get('course_id')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        return queryset
+
+class StudentProgressViewSet(viewsets.ModelViewSet):
+    queryset = StudentProgress.objects.all()
+    serializer_class = StudentProgressSerializer
+    
+    @action(detail=False, methods=['post'])
+    def update_progress(self, request):
+        video_lecture_id = request.data.get('video_lecture')
+        progress = request.data.get('progress', 0)
+        watched = request.data.get('watched', False)
+        
+        try:
+            video_lecture = VideoLecture.objects.get(id=video_lecture_id)
+            progress_obj, created = StudentProgress.objects.get_or_create(
+                student=request.user,
+                video_lecture=video_lecture
+            )
+            progress_obj.progress = progress
+            if watched:
+                progress_obj.watched = True
+            progress_obj.save()
+            
+            # Check if all lectures are completed
+            self.check_course_completion(request.user, video_lecture.course)
+            
+            return Response({'status': 'progress updated'})
+        except VideoLecture.DoesNotExist:
+            return Response({'error': 'Video lecture not found'}, status=404)
+    
+    def check_course_completion(self, student, course):
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if total_lectures > 0 and completed_lectures == total_lectures:
+            enrollment = Enrollment.objects.get(student=student, course=course)
+            if not enrollment.completed:
+                enrollment.completed = True
+                enrollment.completed_at = timezone.now()
+                enrollment.save()
+
+class AssignmentViewSet(viewsets.ModelViewSet):
+    queryset = Assignment.objects.all()
+    serializer_class = AssignmentSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = AssignmentSubmission.objects.all()
+    serializer_class = AssignmentSubmissionSerializer
+    
+    def get_queryset(self):
+        queryset = AssignmentSubmission.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        elif self.request.user.user_type == 'instructor':
+            queryset = queryset.filter(assignment__course__instructor=self.request.user)
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        submission = self.get_object()
+        score = request.data.get('score')
+        feedback = request.data.get('feedback')
+        status = request.data.get('status')
+        
+        submission.score = score
+        submission.feedback = feedback
+        submission.status = status
+        submission.reviewed_by = request.user
+        submission.reviewed_at = timezone.now()
+        submission.save()
+        
+        return Response({'status': 'submission reviewed'})
+
+class ExamViewSet(viewsets.ModelViewSet):
+    queryset = Exam.objects.filter(is_active=True)
+    serializer_class = ExamSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class ExamSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = ExamSubmission.objects.all()
+    serializer_class = ExamSubmissionSerializer
+    
+    def create(self, request):
+        exam_id = request.data.get('exam')
+        answers = request.data.get('answers', [])
+        
+        try:
+            exam = Exam.objects.get(id=exam_id)
+            submission, created = ExamSubmission.objects.get_or_create(
+                exam=exam,
+                student=request.user
+            )
+            
+            if not created:
+                return Response({'error': 'Exam already attempted'}, status=400)
+            
+            # Calculate score
+            total_score = 0
+            earned_score = 0
+            
+            for answer_data in answers:
+                question = Question.objects.get(id=answer_data['question_id'])
+                total_score += question.score
+                
+                if question.question_type == 'multiple_choice':
+                    selected_choice = Choice.objects.get(id=answer_data['selected_choice_id'])
+                    is_correct = selected_choice.is_correct
+                    if is_correct:
+                        earned_score += question.score
+                elif question.question_type == 'true_false':
+                    is_correct = (answer_data['answer_text'].lower() == str(question.choices.first().is_correct).lower())
+                    if is_correct:
+                        earned_score += question.score
+                
+                Answer.objects.create(
+                    exam_submission=submission,
+                    question=question,
+                    selected_choice=selected_choice if question.question_type == 'multiple_choice' else None,
+                    answer_text=answer_data.get('answer_text', ''),
+                    is_correct=is_correct
+                )
+            
+            submission.score = (earned_score / total_score) * 100 if total_score > 0 else 0
+            submission.passed = submission.score >= exam.passing_score
+            submission.submitted_at = timezone.now()
+            submission.save()
+            
+            # Check if certificate should be issued
+            if submission.passed:
+                self.issue_certificate(request.user, exam.course)
+            
+            return Response({
+                'score': submission.score,
+                'passed': submission.passed,
+                'total_questions': len(answers),
+                'correct_answers': earned_score // 10  # Assuming each question is 10 points
+            })
+        
+        except Exam.DoesNotExist:
+            return Response({'error': 'Exam not found'}, status=404)
+    
+    def issue_certificate(self, student, course):
+        # Check if assignment is approved (if exists)
+        assignment = Assignment.objects.filter(course=course).first()
+        if assignment:
+            submission = AssignmentSubmission.objects.filter(
+                assignment=assignment,
+                student=student,
+                status='approved'
+            ).exists()
+            if not submission:
+                return
+        
+        # Check if all videos are watched
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if completed_lectures == total_lectures:
+            certificate, created = Certificate.objects.get_or_create(
+                student=student,
+                course=course
+            )
+            return certificate
+
+class CertificateViewSet(viewsets.ModelViewSet):
+    queryset = Certificate.objects.all()
+    serializer_class = CertificateSerializer
+    
+    def get_queryset(self):
+        queryset = Certificate.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        return queryset
+    
+class QuestionViewSet(viewsets.ModelViewSet):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
+    
+    def get_queryset(self):
+        queryset = Question.objects.all()
+        exam_id = self.request.query_params.get('exam_id')
+        if exam_id:
+            queryset = queryset.filter(exam_id=exam_id)
+        return queryset
+
+class ChoiceViewSet(viewsets.ModelViewSet):
+    queryset = Choice.objects.all()
+    serializer_class = ChoiceSerializer
+    
+    def get_queryset(self):
+        queryset = Choice.objects.all()
+        question_id = self.request.query_params.get('question_id')
+        if question_id:
+            queryset = queryset.filter(question_id=question_id)
+        return queryset
+
+
+now i work or i add the videoin two ways 
+1.in the backend by signing in as an admin in django and there is a button whic says add course add video ,
+2. by signing in as an instructure in reactjs frontend and i can add course
+
+ but there is only one video i can add not the video parts in it and also there is no exam and assignmen parts to add 
+
+to do this ask me another information may be if it is code or other information
+
+
+
+Now I understand! You have the basic course/video creation, but you're missing:
+
+Multiple videos per course (currently only one video per course)
+
+Exam creation interface for instructors
+
+Assignment creation interface for instructors
+
+Sequential structure (videos → assignments → exams)
+
+🎯 What I Need to See:
+1. Your Current Course Creation Form
+How do instructors currently add courses?
+
+What fields are in the course creation form?
+
+2. Your Current Video Addition Interface
+How do you currently add videos to courses?
+
+Is it one video per course or multiple?
+
+3. Your Instructor Dashboard
+What options does the instructor currently have?
+
+🔍 Please Share:
+Your CreateCourse.js component
+
+Your instructor dashboard or course management interface
+
+How you currently add videos to courses
+
+🚀 Once I See These, I'll Help You Build:
+Multiple video upload per course
+
+Assignment creation interface
+
+Exam creation with question bank
+
+Sequential module organization
+
+Which file would you like to share first?
+
+For example, show me your CreateCourse.js so I can see how instructors currently create courses and add videos.
+
+
+this is the CreateCourse.js 
+import React, { useState } from 'react';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+const CreateCourse = () => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    level: 'beginner',
+    duration_hours: 10,
+    price: 0,
+    is_published: false
+  });
+  const [thumbnail, setThumbnail] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  if (!user || user.user_type !== 'instructor') {
+    return (
+      <div className="container">
+        <h1>Access Denied</h1>
+        <p>Only instructors can create courses.</p>
+      </div>
+    );
+  }
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleThumbnailChange = (e) => {
+    setThumbnail(e.target.files[0]);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Create FormData to handle file upload
+      const submitData = new FormData();
+      submitData.append('title', formData.title);
+      submitData.append('description', formData.description);
+      submitData.append('level', formData.level);
+      submitData.append('duration_hours', formData.duration_hours);
+      submitData.append('price', formData.price);
+      submitData.append('is_published', formData.is_published);
+      
+      if (thumbnail) {
+        submitData.append('thumbnail', thumbnail);
+      }
+
+      // Remove unused response variable by not assigning it
+      await axios.post('http://localhost:8000/api/courses/', submitData, {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      alert('Course created successfully!');
+      navigate('/my-courses');
+    } catch (error) {
+      console.error('Create course error:', error);
+      setError(error.response?.data?.error || 'Failed to create course');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="container">
+      <h1>Create New Course</h1>
+      
+      <div className="card">
+        {error && <div style={{ color: 'red', marginBottom: '15px' }}>{error}</div>}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Course Title:</label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              required
+              placeholder="e.g., Introduction to Apologetics"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Description:</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              required
+              rows="4"
+              placeholder="Describe what students will learn..."
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Course Thumbnail:</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleThumbnailChange}
+            />
+            <small>Upload a thumbnail image for your course</small>
+          </div>
+
+          <div className="form-group">
+            <label>Level:</label>
+            <select name="level" value={formData.level} onChange={handleChange}>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Duration (hours):</label>
+            <input
+              type="number"
+              name="duration_hours"
+              value={formData.duration_hours}
+              onChange={handleChange}
+              min="1"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Price ($):</label>
+            <input
+              type="number"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>
+              <input
+                type="checkbox"
+                name="is_published"
+                checked={formData.is_published}
+                onChange={(e) => setFormData({...formData, is_published: e.target.checked})}
+              />
+              Publish Course
+            </label>
+          </div>
+
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={loading}
+          >
+            {loading ? 'Creating Course...' : 'Create Course'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default CreateCourse;
+
+my DashBoard.js
+import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
+import './Dashboard.css';
+
+const Dashboard = () => {
+  const { user, logout } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="container dashboard-container">
+        <div className="empty-state">
+          <div className="empty-state-icon">🔒</div>
+          <h3>Authentication Required</h3>
+          <p>Please log in to access your personalized dashboard</p>
+          <Link to="/login" className="btn btn-primary">
+            Login to Continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container dashboard-container">
+      <div className="dashboard-header">
+        <h1>Welcome back, {user.first_name || user.username}! 👋</h1>
+        <p>Continue your learning journey with Apolomics</p>
+        <span className="role-badge-large">
+          {user.user_type === 'instructor' ? '🎓 Instructor' : '📚 Student'}
+        </span>
+      </div>
+      
+      {user.user_type === 'instructor' ? (
+        <InstructorDashboard user={user} />
+      ) : (
+        <StudentDashboard user={user} />
+      )}
+      
+      <div style={{ textAlign: 'center', marginTop: '3rem' }}>
+        <button onClick={logout} className="btn btn-outline">
+          🚪 Logout
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const InstructorDashboard = ({ user }) => {
+  return (
+    <div className="fade-in-up">
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-number">12</div>
+          <div className="stat-label">Total Courses</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">1.2K</div>
+          <div className="stat-label">Students</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">98%</div>
+          <div className="stat-label">Satisfaction</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">4.8</div>
+          <div className="stat-label">Avg Rating</div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid-enhanced">
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">🎨</span>
+          <h4>Create New Course</h4>
+          <p>Design and publish a new apologetics course for your students</p>
+          <Link to="/courses/create" className="btn btn-primary">
+            Start Creating
+          </Link>
+        </div>
+        
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">📚</span>
+          <h4>My Courses</h4>
+          <p>Manage your existing courses and update content</p>
+          <Link to="/my-courses" className="btn btn-secondary">
+            View Courses
+          </Link>
+        </div>
+        
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">📊</span>
+          <h4>Student Analytics</h4>
+          <p>Track student progress and engagement metrics</p>
+          <Link to="/analytics" className="btn btn-outline">
+            View Analytics
+          </Link>
+        </div>
+
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">💬</span>
+          <h4>Student Discussions</h4>
+          <p>Engage with students and answer their questions</p>
+          <Link to="/discussions" className="btn btn-outline">
+            Join Discussions
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StudentDashboard = ({ user }) => {
+  return (
+    <div className="fade-in-up">
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-number">5</div>
+          <div className="stat-label">Enrolled Courses</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">12</div>
+          <div className="stat-label">Hours Learned</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">3</div>
+          <div className="stat-label">Certificates</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number">85%</div>
+          <div className="stat-label">Avg Progress</div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid-enhanced">
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">🎯</span>
+          <h4>Continue Learning</h4>
+          <p>Pick up where you left off in your enrolled courses</p>
+          <Link to="/my-courses" className="btn btn-primary">
+            My Courses
+          </Link>
+        </div>
+        
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">🔍</span>
+          <h4>Browse Courses</h4>
+          <p>Discover new apologetics courses to expand your knowledge</p>
+          <Link to="/courses" className="btn btn-secondary">
+            Explore Courses
+          </Link>
+        </div>
+        
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">🏆</span>
+          <h4>My Certificates</h4>
+          <p>View and download your earned certificates</p>
+          <Link to="/certificates" className="btn btn-outline">
+            View Certificates
+          </Link>
+        </div>
+
+        <div className="dashboard-card-enhanced">
+          <span className="dashboard-card-icon">📖</span>
+          <h4>Study Resources</h4>
+          <p>Access additional learning materials and resources</p>
+          <Link to="/resources" className="btn btn-outline">
+            View Resources
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
+
+instructor DashBoard.js
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import './InstructorDashboard.css';
+
+const InstructorDashboard = () => {
+  const { user, token } = useAuth();
+  const [activeTab, setActiveTab] = useState('courses');
+  const [courses, setCourses] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInstructorData();
+  }, []);
+
+  const fetchInstructorData = async () => {
+    try {
+      const [coursesRes, examsRes] = await Promise.all([
+        fetch('http://localhost:8000/api/courses/my_courses/', {
+          headers: { 'Authorization': `Token ${token}` }
+        }),
+        fetch('http://localhost:8000/api/exams/', {
+          headers: { 'Authorization': `Token ${token}` }
+        })
+      ]);
+      
+      const coursesData = await coursesRes.json();
+      const examsData = await examsRes.json();
+      
+      // Filter courses taught by this instructor
+      const instructorCourses = coursesData.filter(course => 
+        course.instructor === user.id
+      );
+      
+      setCourses(instructorCourses);
+      setExams(examsData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching instructor data:', error);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="instructor-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading instructor dashboard...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="instructor-dashboard">
+      <div className="dashboard-header">
+        <h1>Instructor Dashboard</h1>
+        <p>Welcome back, {user?.first_name || 'Instructor'}!</p>
+      </div>
+
+      <div className="dashboard-stats">
+        <div className="stat-card">
+          <div className="stat-icon">📚</div>
+          <div className="stat-info">
+            <h3>{courses.length}</h3>
+            <p>Courses</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">🎯</div>
+          <div className="stat-info">
+            <h3>{exams.length}</h3>
+            <p>Exams</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">📝</div>
+          <div className="stat-info">
+            <h3>0</h3>
+            <p>Assignments to Review</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">👥</div>
+          <div className="stat-info">
+            <h3>0</h3>
+            <p>Students</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-tabs">
+        <div className="tab-nav">
+          <button 
+            className={`tab-btn ${activeTab === 'courses' ? 'active' : ''}`}
+            onClick={() => setActiveTab('courses')}
+          >
+            My Courses
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'exams' ? 'active' : ''}`}
+            onClick={() => setActiveTab('exams')}
+          >
+            Exam Management
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'assignments' ? 'active' : ''}`}
+            onClick={() => setActiveTab('assignments')}
+          >
+            Assignment Reviews
+          </button>
+        </div>
+
+        <div className="tab-content">
+          {activeTab === 'courses' && (
+            <CoursesTab courses={courses} />
+          )}
+          {activeTab === 'exams' && (
+            <ExamsTab courses={courses} exams={exams} />
+          )}
+          {activeTab === 'assignments' && (
+            <AssignmentsTab />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Courses Tab Component
+const CoursesTab = ({ courses }) => (
+  <div className="courses-tab">
+    <div className="tab-header">
+      <h2>My Courses</h2>
+      <button className="btn-primary">Create New Course</button>
+    </div>
+    
+    <div className="courses-grid">
+      {courses.map(course => (
+        <div key={course.id} className="course-card">
+          <div className="course-thumbnail">
+            {course.thumbnail ? (
+              <img src={course.thumbnail} alt={course.title} />
+            ) : (
+              <div className="thumbnail-placeholder">📚</div>
+            )}
+          </div>
+          <div className="course-info">
+            <h3>{course.title}</h3>
+            <p>{course.description}</p>
+            <div className="course-meta">
+              <span>Level: {course.level}</span>
+              <span>Duration: {course.duration}h</span>
+            </div>
+            <div className="course-actions">
+              <button className="btn-outline">Manage</button>
+              <button className="btn-primary">Add Exam</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// Exams Tab Component
+const ExamsTab = ({ courses, exams }) => (
+  <div className="exams-tab">
+    <div className="tab-header">
+      <h2>Exam Management</h2>
+      <button className="btn-primary">Create New Exam</button>
+    </div>
+
+    <div className="exams-content">
+      <div className="exams-list">
+        <h3>Existing Exams</h3>
+        {exams.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🎯</div>
+            <p>No exams created yet</p>
+            <p>Create your first exam for a course</p>
+          </div>
+        ) : (
+          exams.map(exam => (
+            <div key={exam.id} className="exam-card">
+              <div className="exam-header">
+                <h4>{exam.title}</h4>
+                <span className={`status ${exam.is_active ? 'active' : 'inactive'}`}>
+                  {exam.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <p>{exam.description}</p>
+              <div className="exam-meta">
+                <span>Duration: {exam.duration}min</span>
+                <span>Passing: {exam.passing_score}%</span>
+                <span>Questions: {exam.questions?.length || 0}</span>
+              </div>
+              <div className="exam-actions">
+                <button className="btn-outline">Edit Exam</button>
+                <button className="btn-outline">View Questions</button>
+                <button className="btn-danger">Delete</button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="create-exam-form">
+        <h3>Create New Exam</h3>
+        <ExamForm courses={courses} />
+      </div>
+    </div>
+  </div>
+);
+
+// Exam Form Component
+const ExamForm = ({ courses }) => {
+  const { token } = useAuth();
+  const [formData, setFormData] = useState({
+    course: '',
+    title: '',
+    description: '',
+    duration: 60,
+    passing_score: 70
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:8000/api/exams/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        alert('Exam created successfully!');
+        setFormData({
+          course: '',
+          title: '',
+          description: '',
+          duration: 60,
+          passing_score: 70
+        });
+        window.location.reload();
+      } else {
+        alert('Error creating exam');
+      }
+    } catch (error) {
+      console.error('Error creating exam:', error);
+      alert('Error creating exam');
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="exam-form">
+      <div className="form-group">
+        <label>Course *</label>
+        <select 
+          name="course" 
+          value={formData.course} 
+          onChange={handleChange}
+          required
+        >
+          <option value="">Select a course</option>
+          {courses.map(course => (
+            <option key={course.id} value={course.id}>
+              {course.title}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>Exam Title *</label>
+        <input
+          type="text"
+          name="title"
+          value={formData.title}
+          onChange={handleChange}
+          placeholder="Enter exam title"
+          required
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Description</label>
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Enter exam description"
+          rows="3"
+        />
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label>Duration (minutes) *</label>
+          <input
+            type="number"
+            name="duration"
+            value={formData.duration}
+            onChange={handleChange}
+            min="15"
+            max="180"
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Passing Score (%) *</label>
+          <input
+            type="number"
+            name="passing_score"
+            value={formData.passing_score}
+            onChange={handleChange}
+            min="50"
+            max="100"
+            required
+          />
+        </div>
+      </div>
+
+      <button type="submit" className="btn-primary">Create Exam</button>
+    </form>
+  );
+};
+
+// Assignments Tab Component
+const AssignmentsTab = () => (
+  <div className="assignments-tab">
+    <h2>Assignment Reviews</h2>
+    <div className="empty-state">
+      <div className="empty-icon">📝</div>
+      <p>No assignments to review</p>
+      <p>Student submissions will appear here for review</p>
+    </div>
+  </div>
+);
+
+export default InstructorDashboard;
+
+
+MyCourses.js
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import './MyCourses.css';
+
+const MyCourses = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  useEffect(() => {
+    if (!token) {
+      setError('Please log in to view your courses.');
+      setLoading(false);
+      return;
+    }
+    fetchMyCourses();
+  }, [token, user]);
+
+  const fetchMyCourses = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('http://127.0.0.1:8000/api/courses/', {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const coursesData = await response.json();
+      
+      const availableCourses = coursesData.map(course => ({
+        id: course.id,
+        title: course.title || 'Untitled Course',
+        description: course.description || 'No description available',
+        thumbnail: course.thumbnail,
+        instructor_name: course.instructor_name || (course.instructor && course.instructor.username) || 'Unknown Instructor',
+        level: course.level || 'Beginner',
+        duration: course.duration || 0,
+        progress_percentage: Math.floor(Math.random() * 100), // Simulated progress
+        price: course.price || 0,
+        category: course.category || 'Development',
+        rating: course.rating || 4.5,
+        students: course.students || Math.floor(Math.random() * 1000),
+        is_published: course.is_published !== false
+      })).filter(course => course.is_published);
+
+      setCourses(availableCourses);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setError(error.message || 'Failed to load courses. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleContinueLearning = (courseId) => {
+    navigate(`/learn/${courseId}`);
+  };
+
+  const handleViewCourse = (courseId) => {
+    navigate(`/course/${courseId}`);
+  };
+
+  const filteredCourses = courses.filter(course => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'in-progress') return course.progress_percentage > 0 && course.progress_percentage < 100;
+    if (activeFilter === 'completed') return course.progress_percentage === 100;
+    if (activeFilter === 'not-started') return course.progress_percentage === 0;
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="modern-courses">
+        <div className="courses-skeleton">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="course-skeleton">
+              <div className="skeleton-image"></div>
+              <div className="skeleton-content">
+                <div className="skeleton-line short"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-actions"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="modern-courses">
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h2>Unable to Load Courses</h2>
+          <p>{error}</p>
+          <button onClick={fetchMyCourses} className="modern-btn primary">
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="modern-courses">
+      {/* Header Section */}
+      <div className="courses-hero">
+        <div className="hero-content">
+          <h1>My Learning Journey</h1>
+          <p>Continue where you left off and discover new skills</p>
+          <div className="hero-stats">
+            <div className="stat">
+              <span className="stat-number">{courses.length}</span>
+              <span className="stat-label">Total Courses</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage === 100).length}
+              </span>
+              <span className="stat-label">Completed</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage > 0 && c.progress_percentage < 100).length}
+              </span>
+              <span className="stat-label">In Progress</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="courses-filters">
+        <div className="filter-buttons">
+          {[
+            { key: 'all', label: 'All Courses', icon: '📚' },
+            { key: 'in-progress', label: 'In Progress', icon: '🎯' },
+            { key: 'completed', label: 'Completed', icon: '✅' },
+            { key: 'not-started', label: 'Not Started', icon: '🆕' }
+          ].map(filter => (
+            <button
+              key={filter.key}
+              className={`filter-btn ${activeFilter === filter.key ? 'active' : ''}`}
+              onClick={() => setActiveFilter(filter.key)}
+            >
+              <span className="filter-icon">{filter.icon}</span>
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Courses Grid */}
+      <div className="courses-container">
+        {filteredCourses.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🎓</div>
+            <h3>No courses found</h3>
+            <p>No courses match your current filter selection.</p>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className="modern-btn secondary"
+            >
+              View All Courses
+            </button>
+          </div>
+        ) : (
+          <div className="modern-courses-grid">
+            {filteredCourses.map(course => (
+              <div key={course.id} className="modern-course-card">
+                {/* Course Image */}
+                <div className="course-image-section">
+                  {course.thumbnail ? (
+                    <img src={course.thumbnail} alt={course.title} className="course-thumbnail" />
+                  ) : (
+                    <div className="course-thumbnail-placeholder">
+                      <span className="placeholder-icon">📚</span>
+                    </div>
+                  )}
+                  <div className="course-badges">
+                    {course.progress_percentage === 100 && (
+                      <span className="badge completed">Completed 🎉</span>
+                    )}
+                    {course.progress_percentage > 0 && course.progress_percentage < 100 && (
+                      <span className="badge in-progress">In Progress</span>
+                    )}
+                    <span className="badge level">{course.level}</span>
+                  </div>
+                  <div className="progress-overlay">
+                    <div className="progress-track">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${course.progress_percentage}%` }}
+                      ></div>
+                    </div>
+                    <span className="progress-text">{course.progress_percentage}% Complete</span>
+                  </div>
+                </div>
+
+                {/* Course Content */}
+                <div className="course-content-section">
+                  <div className="course-header">
+                    <h3 className="course-title">{course.title}</h3>
+                    <div className="course-meta">
+                      <span className="instructor">By {course.instructor_name}</span>
+                      <div className="course-rating">
+                        <span className="stars">⭐ {course.rating}</span>
+                        <span className="students">👥 {course.students}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="course-description">{course.description}</p>
+
+                  <div className="course-details">
+                    <div className="detail-item">
+                      <span className="detail-icon">⏱️</span>
+                      <span>{course.duration}h</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">📁</span>
+                      <span>{course.category}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">🎯</span>
+                      <span>{course.level}</span>
+                    </div>
+                  </div>
+
+                  {/* Course Actions */}
+                  <div className="course-actions">
+                    {course.progress_percentage === 0 ? (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary start-learning"
+                      >
+                        <span className="btn-icon">🚀</span>
+                        Start Learning
+                      </button>
+                    ) : course.progress_percentage === 100 ? (
+                      <button 
+                        onClick={() => handleViewCourse(course.id)}
+                        className="modern-btn success review-course"
+                      >
+                        <span className="btn-icon">📖</span>
+                        Review Course
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary continue-learning"
+                      >
+                        <span className="btn-icon">▶️</span>
+                        Continue ({course.progress_percentage}%)
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleViewCourse(course.id)}
+                      className="modern-btn ghost"
+                    >
+                      <span className="btn-icon">👁️</span>
+                      Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default MyCourses;
+
+and also in the courses backend  there is the codes
+admin.py
+from django.contrib import admin
+from .models import Course, VideoLecture, Enrollment, StudentProgress
+
+@admin.register(Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ['title', 'instructor', 'level', 'is_published']  # Removed duration_hours
+    list_filter = ['level', 'is_published', 'instructor']
+
+@admin.register(VideoLecture)
+class VideoLectureAdmin(admin.ModelAdmin):
+    list_display = ['title', 'course', 'order']  # Removed duration_minutes
+    list_filter = ['course']
+
+@admin.register(Enrollment)
+class EnrollmentAdmin(admin.ModelAdmin):
+    list_display = ['student', 'course', 'enrolled_at', 'completed']
+    list_filter = ['completed', 'enrolled_at']
+
+@admin.register(StudentProgress)
+class StudentProgressAdmin(admin.ModelAdmin):
+    list_display = ['student', 'video_lecture', 'watched', 'last_watched']
+    list_filter = ['watched']
+
+views.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from .models import *
+from .serializers import *
+
+class CourseViewSet(viewsets.ModelViewSet):
+    queryset = Course.objects.filter(is_published=True)
+    serializer_class = CourseSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
+    @action(detail=False, methods=['get'])
+    def my_courses(self, request):
+        enrolled_courses = Course.objects.filter(
+            enrollments__student=request.user
+        )
+        serializer = self.get_serializer(enrolled_courses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def enroll(self, request, pk=None):
+        course = self.get_object()
+        enrollment, created = Enrollment.objects.get_or_create(
+            student=request.user,
+            course=course
+        )
+        return Response({'status': 'enrolled' if created else 'already enrolled'})
+    
+    @action(detail=True, methods=['get'])
+    def enrollment_status(self, request, pk=None):
+        course = self.get_object()
+        is_enrolled = Enrollment.objects.filter(
+            student=request.user,
+            course=course
+        ).exists()
+        return Response({'is_enrolled': is_enrolled})
+
+class VideoLectureViewSet(viewsets.ModelViewSet):
+    queryset = VideoLecture.objects.all()
+    serializer_class = VideoLectureSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
+    def get_queryset(self):
+        queryset = VideoLecture.objects.all()
+        course_id = self.request.query_params.get('course_id')
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+        return queryset
+
+class StudentProgressViewSet(viewsets.ModelViewSet):
+    queryset = StudentProgress.objects.all()
+    serializer_class = StudentProgressSerializer
+    
+    @action(detail=False, methods=['post'])
+    def update_progress(self, request):
+        video_lecture_id = request.data.get('video_lecture')
+        progress = request.data.get('progress', 0)
+        watched = request.data.get('watched', False)
+        
+        try:
+            video_lecture = VideoLecture.objects.get(id=video_lecture_id)
+            progress_obj, created = StudentProgress.objects.get_or_create(
+                student=request.user,
+                video_lecture=video_lecture
+            )
+            progress_obj.progress = progress
+            if watched:
+                progress_obj.watched = True
+            progress_obj.save()
+            
+            # Check if all lectures are completed
+            self.check_course_completion(request.user, video_lecture.course)
+            
+            return Response({'status': 'progress updated'})
+        except VideoLecture.DoesNotExist:
+            return Response({'error': 'Video lecture not found'}, status=404)
+    
+    def check_course_completion(self, student, course):
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if total_lectures > 0 and completed_lectures == total_lectures:
+            enrollment = Enrollment.objects.get(student=student, course=course)
+            if not enrollment.completed:
+                enrollment.completed = True
+                enrollment.completed_at = timezone.now()
+                enrollment.save()
+
+class AssignmentViewSet(viewsets.ModelViewSet):
+    queryset = Assignment.objects.all()
+    serializer_class = AssignmentSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = AssignmentSubmission.objects.all()
+    serializer_class = AssignmentSubmissionSerializer
+    
+    def get_queryset(self):
+        queryset = AssignmentSubmission.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        elif self.request.user.user_type == 'instructor':
+            queryset = queryset.filter(assignment__course__instructor=self.request.user)
+        return queryset
+    
+    @action(detail=True, methods=['post'])
+    def review(self, request, pk=None):
+        submission = self.get_object()
+        score = request.data.get('score')
+        feedback = request.data.get('feedback')
+        status = request.data.get('status')
+        
+        submission.score = score
+        submission.feedback = feedback
+        submission.status = status
+        submission.reviewed_by = request.user
+        submission.reviewed_at = timezone.now()
+        submission.save()
+        
+        return Response({'status': 'submission reviewed'})
+
+class ExamViewSet(viewsets.ModelViewSet):
+    queryset = Exam.objects.filter(is_active=True)
+    serializer_class = ExamSerializer
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+class ExamSubmissionViewSet(viewsets.ModelViewSet):
+    queryset = ExamSubmission.objects.all()
+    serializer_class = ExamSubmissionSerializer
+    
+    def create(self, request):
+        exam_id = request.data.get('exam')
+        answers = request.data.get('answers', [])
+        
+        try:
+            exam = Exam.objects.get(id=exam_id)
+            submission, created = ExamSubmission.objects.get_or_create(
+                exam=exam,
+                student=request.user
+            )
+            
+            if not created:
+                return Response({'error': 'Exam already attempted'}, status=400)
+            
+            # Calculate score
+            total_score = 0
+            earned_score = 0
+            
+            for answer_data in answers:
+                question = Question.objects.get(id=answer_data['question_id'])
+                total_score += question.score
+                
+                if question.question_type == 'multiple_choice':
+                    selected_choice = Choice.objects.get(id=answer_data['selected_choice_id'])
+                    is_correct = selected_choice.is_correct
+                    if is_correct:
+                        earned_score += question.score
+                elif question.question_type == 'true_false':
+                    is_correct = (answer_data['answer_text'].lower() == str(question.choices.first().is_correct).lower())
+                    if is_correct:
+                        earned_score += question.score
+                
+                Answer.objects.create(
+                    exam_submission=submission,
+                    question=question,
+                    selected_choice=selected_choice if question.question_type == 'multiple_choice' else None,
+                    answer_text=answer_data.get('answer_text', ''),
+                    is_correct=is_correct
+                )
+            
+            submission.score = (earned_score / total_score) * 100 if total_score > 0 else 0
+            submission.passed = submission.score >= exam.passing_score
+            submission.submitted_at = timezone.now()
+            submission.save()
+            
+            # Check if certificate should be issued
+            if submission.passed:
+                self.issue_certificate(request.user, exam.course)
+            
+            return Response({
+                'score': submission.score,
+                'passed': submission.passed,
+                'total_questions': len(answers),
+                'correct_answers': earned_score // 10  # Assuming each question is 10 points
+            })
+        
+        except Exam.DoesNotExist:
+            return Response({'error': 'Exam not found'}, status=404)
+    
+    def issue_certificate(self, student, course):
+        # Check if assignment is approved (if exists)
+        assignment = Assignment.objects.filter(course=course).first()
+        if assignment:
+            submission = AssignmentSubmission.objects.filter(
+                assignment=assignment,
+                student=student,
+                status='approved'
+            ).exists()
+            if not submission:
+                return
+        
+        # Check if all videos are watched
+        total_lectures = course.lectures.count()
+        completed_lectures = StudentProgress.objects.filter(
+            student=student,
+            video_lecture__course=course,
+            watched=True
+        ).count()
+        
+        if completed_lectures == total_lectures:
+            certificate, created = Certificate.objects.get_or_create(
+                student=student,
+                course=course
+            )
+            return certificate
+
+class CertificateViewSet(viewsets.ModelViewSet):
+    queryset = Certificate.objects.all()
+    serializer_class = CertificateSerializer
+    
+    def get_queryset(self):
+        queryset = Certificate.objects.all()
+        if self.request.user.user_type == 'student':
+            queryset = queryset.filter(student=self.request.user)
+        return queryset
+    
+class QuestionViewSet(viewsets.ModelViewSet):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
+    
+    def get_queryset(self):
+        queryset = Question.objects.all()
+        exam_id = self.request.query_params.get('exam_id')
+        if exam_id:
+            queryset = queryset.filter(exam_id=exam_id)
+        return queryset
+
+class ChoiceViewSet(viewsets.ModelViewSet):
+    queryset = Choice.objects.all()
+    serializer_class = ChoiceSerializer
+    
+    def get_queryset(self):
+        queryset = Choice.objects.all()
+        question_id = self.request.query_params.get('question_id')
+        if question_id:
+            queryset = queryset.filter(question_id=question_id)
+        return queryset    
+    
+    models.py
+from django.db import models
+from django.contrib.auth.models import User
+from users.models import User
+
+class Course(models.Model):
+    LEVEL_CHOICES = (
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced'),
+    )
+    
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    instructor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='courses_taught')
+    thumbnail = models.ImageField(upload_to='course_thumbnails/', null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='beginner')
+    duration = models.IntegerField(help_text="Duration in hours", default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_published = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return self.title
+
+class VideoLecture(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lectures')
+    title = models.CharField(max_length=200)
+    video_file = models.FileField(upload_to='video_lectures/')
+    duration = models.IntegerField(help_text="Duration in seconds", default=0)
+    order = models.IntegerField(default=0)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['order']
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class Enrollment(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollments')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollments')
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['student', 'course']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.course.title}"
+
+class StudentProgress(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress')
+    video_lecture = models.ForeignKey(VideoLecture, on_delete=models.CASCADE, related_name='progress')
+    watched = models.BooleanField(default=False)
+    progress = models.FloatField(default=0.0)  # Percentage watched (0-100)
+    last_watched = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['student', 'video_lecture']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.video_lecture.title} ({self.progress}%)"
+
+class Assignment(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='assignments')
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    due_date = models.DateTimeField(null=True, blank=True)
+    max_score = models.IntegerField(default=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class AssignmentSubmission(models.Model):
+    STATUS_CHOICES = (
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='assignment_submissions')
+    submission_file = models.FileField(upload_to='assignment_submissions/')
+    submission_text = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')
+    score = models.IntegerField(null=True, blank=True)
+    feedback = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_assignments')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ['assignment', 'student']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.assignment.title}"
+
+class Exam(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='course_exams')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    duration = models.IntegerField(help_text="Duration in minutes", default=60)
+    passing_score = models.IntegerField(default=70)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+class Question(models.Model):
+    QUESTION_TYPES = (
+        ('multiple_choice', 'Multiple Choice'),
+        ('true_false', 'True/False'),
+        ('short_answer', 'Short Answer'),
+    )
+    
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='questions')
+    question_text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES, default='multiple_choice')
+    order = models.IntegerField(default=0)
+    score = models.IntegerField(default=10)
+    
+    class Meta:
+        ordering = ['order']
+    
+    def __str__(self):
+        return f"Q{self.order}: {self.question_text[:50]}..."
+
+class Choice(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices')
+    choice_text = models.CharField(max_length=200)
+    is_correct = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.choice_text} ({'Correct' if self.is_correct else 'Incorrect'})"
+
+class ExamSubmission(models.Model):
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='submissions')
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='exam_submissions')
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    score = models.IntegerField(null=True, blank=True)
+    passed = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ['exam', 'student']
+    
+    def __str__(self):
+        return f"{self.student.username} - {self.exam.title} ({self.score or 'Not scored'})"
+
+class Answer(models.Model):
+    exam_submission = models.ForeignKey(ExamSubmission, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    selected_choice = models.ForeignKey(Choice, on_delete=models.CASCADE, null=True, blank=True)
+    answer_text = models.TextField(blank=True)
+    is_correct = models.BooleanField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"Answer for {self.question}"
+
+class Certificate(models.Model):
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='certificates')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certificates')
+    certificate_id = models.CharField(max_length=20, unique=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    download_url = models.URLField(blank=True)
+    
+    class Meta:
+        unique_together = ['student', 'course']
+    
+    def __str__(self):
+        return f"Certificate {self.certificate_id} - {self.student.username}"
+
+    def save(self, *args, **kwargs):
+        if not self.certificate_id:
+            self.certificate_id = f"APL{self.course.id:03d}{self.student.id:04d}{self.issued_at.strftime('%y%m%d')}"
+        super().save(*args, **kwargs)
+serilaizers.py
+from rest_framework import serializers
+from .models import *
+
+class VideoLectureSerializer(serializers.ModelSerializer):
+    is_unlocked = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = VideoLecture
+        fields = '__all__'
+    
+    def get_is_unlocked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # First lecture is always unlocked
+            if obj.order == 1:
+                return True
+            
+            # Check if previous lecture is completed
+            previous_lecture = VideoLecture.objects.filter(
+                course=obj.course, 
+                order=obj.order - 1
+            ).first()
+            
+            if previous_lecture:
+                progress = StudentProgress.objects.filter(
+                    student=request.user,
+                    video_lecture=previous_lecture,
+                    watched=True
+                ).exists()
+                return progress
+        return False
+    
+    def get_progress(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            try:
+                progress = StudentProgress.objects.get(
+                    student=request.user,
+                    video_lecture=obj
+                )
+                return progress.progress
+            except StudentProgress.DoesNotExist:
+                return 0
+        return 0
+
+class CourseSerializer(serializers.ModelSerializer):
+    instructor_name = serializers.CharField(source='instructor.get_full_name', read_only=True)
+    is_enrolled = serializers.SerializerMethodField()
+    progress_percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Course
+        fields = '__all__'
+    
+    def get_is_enrolled(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return Enrollment.objects.filter(student=request.user, course=obj).exists()
+        return False
+    
+    def get_progress_percentage(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            try:
+                enrollment = Enrollment.objects.get(student=request.user, course=obj)
+                if enrollment.completed:
+                    return 100
+                
+                total_lectures = obj.lectures.count()
+                if total_lectures == 0:
+                    return 0
+                
+                completed_lectures = StudentProgress.objects.filter(
+                    student=request.user,
+                    video_lecture__course=obj,
+                    watched=True
+                ).count()
+                
+                return (completed_lectures / total_lectures) * 100
+            except Enrollment.DoesNotExist:
+                return 0
+        return 0
+
+class StudentProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProgress
+        fields = '__all__'
+
+class AssignmentSerializer(serializers.ModelSerializer):
+    is_submitted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Assignment
+        fields = '__all__'
+    
+    def get_is_submitted(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return AssignmentSubmission.objects.filter(
+                assignment=obj,
+                student=request.user
+            ).exists()
+        return False
+
+class AssignmentSubmissionSerializer(serializers.ModelSerializer):
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    assignment_title = serializers.CharField(source='assignment.title', read_only=True)
+    
+    class Meta:
+        model = AssignmentSubmission
+        fields = '__all__'
+
+class ChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Choice
+        fields = ['id', 'choice_text']
+
+class QuestionSerializer(serializers.ModelSerializer):
+    choices = ChoiceSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Question
+        fields = '__all__'
+
+class ExamSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)
+    is_attempted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Exam
+        fields = '__all__'
+    
+    def get_is_attempted(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return ExamSubmission.objects.filter(
+                exam=obj,
+                student=request.user
+            ).exists()
+        return False
+
+class ExamSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamSubmission
+        fields = '__all__'
+
+class AnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answer
+        fields = '__all__'
+
+class CertificateSerializer(serializers.ModelSerializer):
+    course_title = serializers.CharField(source='course.title', read_only=True)
+    student_name = serializers.CharField(source='student.get_full_name', read_only=True)
+    
+    class Meta:
+        model = Certificate
+        fields = '__all__'
+and also in my main backend the urls.py code is
+from django.contrib import admin  # Add this import
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+from users.views import UserViewSet
+from courses.views import *
+
+router = DefaultRouter()
+router.register(r'users', UserViewSet, basename='users')
+router.register(r'courses', CourseViewSet, basename='courses')
+router.register(r'video-lectures', VideoLectureViewSet, basename='video-lectures')
+router.register(r'progress', StudentProgressViewSet, basename='progress')
+router.register(r'assignments', AssignmentViewSet, basename='assignments')
+router.register(r'assignment-submissions', AssignmentSubmissionViewSet, basename='assignment-submissions')
+router.register(r'exams', ExamViewSet, basename='exams')
+router.register(r'exam-submissions', ExamSubmissionViewSet, basename='exam-submissions')
+router.register(r'certificates', CertificateViewSet, basename='certificates')
+router.register(r'questions', QuestionViewSet, basename='questions')
+router.register(r'choices', ChoiceViewSet, basename='choices')
+
+urlpatterns = [
+    path('admin/', admin.site.urls),  # Add this line for Django admin
+    path('api/', include(router.urls)),
+    path('api/auth/', include('rest_framework.urls')),
+]
+
+
+by this code all things is correct exept the thing that i ask you before and also the video doesnt open when it is opened from mycourses.
+
+what information you need to ask if you need more explanation
+

@@ -1,79 +1,97 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
 import './MyCourses.css';
 
 const MyCourses = () => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { user } = useAuth();
+  const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
-    const fetchMyCourses = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          setError('No authentication token found. Please log in again.');
-          setLoading(false);
-          return;
-        }
-
-        const response = await axios.get('http://localhost:8000/api/courses/my_courses/', {
-          headers: {
-            'Authorization': `Token ${token}`
-          }
-        });
-        
-        setCourses(response.data);
-        setError('');
-      } catch (error) {
-        console.error('Error fetching my courses:', error);
-        
-        if (error.response) {
-          setError(`Server error: ${error.response.status} - ${error.response.statusText}`);
-        } else if (error.request) {
-          setError('No response from server. Check if backend is running.');
-        } else {
-          setError('Error: ' + error.message);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchMyCourses();
-    } else {
-      setLoading(false);
+    if (!token) {
       setError('Please log in to view your courses.');
+      setLoading(false);
+      return;
     }
-  }, [user]);
+    fetchMyCourses();
+  }, [token, user]);
 
-  const getThumbnailUrl = (thumbnailPath) => {
-    if (!thumbnailPath) return null;
-    if (thumbnailPath.startsWith('http')) return thumbnailPath;
-    return `http://localhost:8000${thumbnailPath}`;
+  const fetchMyCourses = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('http://127.0.0.1:8000/api/courses/', {
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const coursesData = await response.json();
+      
+      const availableCourses = coursesData.map(course => ({
+        id: course.id,
+        title: course.title || 'Untitled Course',
+        description: course.description || 'No description available',
+        thumbnail: course.thumbnail,
+        instructor_name: course.instructor_name || (course.instructor && course.instructor.username) || 'Unknown Instructor',
+        level: course.level || 'Beginner',
+        duration: course.duration || 0,
+        progress_percentage: Math.floor(Math.random() * 100), // Simulated progress
+        price: course.price || 0,
+        category: course.category || 'Development',
+        rating: course.rating || 4.5,
+        students: course.students || Math.floor(Math.random() * 1000),
+        is_published: course.is_published !== false
+      })).filter(course => course.is_published);
+
+      setCourses(availableCourses);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setError(error.message || 'Failed to load courses. Please try again.');
+      setLoading(false);
+    }
   };
 
-  const getCourseProgress = (courseId) => {
-    const progressMap = {
-      1: 75,
-      2: 40,
-      3: 100,
-      4: 20,
-      5: 60
-    };
-    return progressMap[courseId] || Math.floor(Math.random() * 100);
+  const handleContinueLearning = (courseId) => {
+    navigate(`/learn/${courseId}`);
   };
+
+  const handleViewCourse = (courseId) => {
+    navigate(`/course/${courseId}`);
+  };
+
+  const filteredCourses = courses.filter(course => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'in-progress') return course.progress_percentage > 0 && course.progress_percentage < 100;
+    if (activeFilter === 'completed') return course.progress_percentage === 100;
+    if (activeFilter === 'not-started') return course.progress_percentage === 0;
+    return true;
+  });
 
   if (loading) {
     return (
-      <div className="container mycourses-container">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
+      <div className="modern-courses">
+        <div className="courses-skeleton">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="course-skeleton">
+              <div className="skeleton-image"></div>
+              <div className="skeleton-content">
+                <div className="skeleton-line short"></div>
+                <div className="skeleton-line medium"></div>
+                <div className="skeleton-line long"></div>
+                <div className="skeleton-actions"></div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -81,161 +99,187 @@ const MyCourses = () => {
 
   if (error) {
     return (
-      <div className="container mycourses-container">
-        <div className="mycourses-header">
-          <h1>My Learning Journey 📖</h1>
-          <p>Your enrolled courses and learning progress</p>
-        </div>
-        
-        <div className="error-message">
-          <strong>⚠️ Error Loading Courses:</strong> {error}
-          <br />
-          <small>Check browser console for technical details</small>
-        </div>
-        
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <Link to="/courses" className="btn btn-primary">
-            Browse Available Courses
-          </Link>
+      <div className="modern-courses">
+        <div className="error-state">
+          <div className="error-icon">⚠️</div>
+          <h2>Unable to Load Courses</h2>
+          <p>{error}</p>
+          <button onClick={fetchMyCourses} className="modern-btn primary">
+            Try Again
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mycourses-container">
-      <div className="mycourses-header">
-        <h1>My Learning Journey 📖</h1>
-        <p>Your enrolled courses and learning progress</p>
+    <div className="modern-courses">
+      {/* Header Section */}
+      <div className="courses-hero">
+        <div className="hero-content">
+          <h1>My Learning Journey</h1>
+          <p>Continue where you left off and discover new skills</p>
+          <div className="hero-stats">
+            <div className="stat">
+              <span className="stat-number">{courses.length}</span>
+              <span className="stat-label">Total Courses</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage === 100).length}
+              </span>
+              <span className="stat-label">Completed</span>
+            </div>
+            <div className="stat">
+              <span className="stat-number">
+                {courses.filter(c => c.progress_percentage > 0 && c.progress_percentage < 100).length}
+              </span>
+              <span className="stat-label">In Progress</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {courses.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📚</div>
-          <h3>No Courses Enrolled Yet</h3>
-          <p>Start your apologetics learning journey by enrolling in our comprehensive courses</p>
-          <div className="learning-actions">
-            <Link to="/courses" className="btn btn-primary">
-              Browse Courses
-            </Link>
-            <Link to="/courses?level=beginner" className="btn btn-outline">
-              Start with Beginner Courses
-            </Link>
-          </div>
+      {/* Filters */}
+      <div className="courses-filters">
+        <div className="filter-buttons">
+          {[
+            { key: 'all', label: 'All Courses', icon: '📚' },
+            { key: 'in-progress', label: 'In Progress', icon: '🎯' },
+            { key: 'completed', label: 'Completed', icon: '✅' },
+            { key: 'not-started', label: 'Not Started', icon: '🆕' }
+          ].map(filter => (
+            <button
+              key={filter.key}
+              className={`filter-btn ${activeFilter === filter.key ? 'active' : ''}`}
+              onClick={() => setActiveFilter(filter.key)}
+            >
+              <span className="filter-icon">{filter.icon}</span>
+              {filter.label}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-number">{courses.length}</div>
-              <div className="stat-label">Enrolled Courses</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">
-                {Math.round(courses.reduce((acc, course) => acc + getCourseProgress(course.id), 0) / courses.length)}%
-              </div>
-              <div className="stat-label">Average Progress</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">
-                {courses.filter(course => getCourseProgress(course.id) === 100).length}
-              </div>
-              <div className="stat-label">Completed</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">
-                {courses.reduce((acc, course) => acc + course.duration_hours, 0)}
-              </div>
-              <div className="stat-label">Total Hours</div>
-            </div>
-          </div>
+      </div>
 
-          <div className="mycourses-stats">
-            <h2>Your Courses ({courses.length})</h2>
-            <p>Continue your learning journey and track your progress</p>
+      {/* Courses Grid */}
+      <div className="courses-container">
+        {filteredCourses.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">🎓</div>
+            <h3>No courses found</h3>
+            <p>No courses match your current filter selection.</p>
+            <button 
+              onClick={() => setActiveFilter('all')}
+              className="modern-btn secondary"
+            >
+              View All Courses
+            </button>
           </div>
-
-          <div className="courses-grid-enhanced">
-            {courses.map(course => {
-              const progress = getCourseProgress(course.id);
-              return (
-                <div key={course.id} className="course-card-enhanced fade-in-up">
-                  <div className="course-thumbnail-enhanced">
-                    {course.thumbnail ? (
-                      <img 
-                        src={getThumbnailUrl(course.thumbnail)} 
-                        alt={course.title}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className="thumbnail-placeholder" style={{display: course.thumbnail ? 'none' : 'flex'}}>
-                      <span>📚</span>
+        ) : (
+          <div className="modern-courses-grid">
+            {filteredCourses.map(course => (
+              <div key={course.id} className="modern-course-card">
+                {/* Course Image */}
+                <div className="course-image-section">
+                  {course.thumbnail ? (
+                    <img src={course.thumbnail} alt={course.title} className="course-thumbnail" />
+                  ) : (
+                    <div className="course-thumbnail-placeholder">
+                      <span className="placeholder-icon">📚</span>
                     </div>
-                    <span className={`course-level-badge level-${course.level}`}>
-                      {course.level}
-                    </span>
-                    
-                    {progress > 0 && (
-                      <div className="progress-overlay">
-                        <div className="progress-overlay-content">
-                          <span>Progress: {progress}%</span>
-                          {progress === 100 && <span>🎉 Complete!</span>}
-                        </div>
-                      </div>
+                  )}
+                  <div className="course-badges">
+                    {course.progress_percentage === 100 && (
+                      <span className="badge completed">Completed 🎉</span>
                     )}
+                    {course.progress_percentage > 0 && course.progress_percentage < 100 && (
+                      <span className="badge in-progress">In Progress</span>
+                    )}
+                    <span className="badge level">{course.level}</span>
                   </div>
-                  
-                  <div className="course-content-enhanced">
-                    <h3>{course.title}</h3>
-                    <p className="course-description-enhanced">{course.description}</p>
-                    
-                    <div className="course-meta">
-                      <div className="course-meta-item">
-                        <strong>👨‍🏫 Instructor:</strong> 
-                        <span>{course.instructor_name}</span>
-                      </div>
-                      <div className="course-meta-item">
-                        <strong>📊 Level:</strong> 
-                        <span style={{ textTransform: 'capitalize' }}>{course.level}</span>
-                      </div>
-                      <div className="course-meta-item">
-                        <strong>⏱️ Duration:</strong> 
-                        <span>{course.duration_hours} hours</span>
-                      </div>
-                    </div>
-
-                    <div className="progress-bar">
+                  <div className="progress-overlay">
+                    <div className="progress-track">
                       <div 
                         className="progress-fill" 
-                        style={{ width: `${progress}%` }}
+                        style={{ width: `${course.progress_percentage}%` }}
                       ></div>
                     </div>
-                    <div className="progress-text">
-                      {progress === 100 ? 'Course Completed! 🎓' : `${progress}% Complete`}
-                    </div>
-                    
-                    <div className="course-actions-enhanced">
-                      <Link 
-                        to={`/learn/${course.id}`} 
-                        className={progress === 100 ? 'btn-review' : 'btn-continue'}
-                        style={{ flex: 1 }}
-                      >
-                        {progress === 0 ? 'Start Learning' : progress === 100 ? 'Review Course' : 'Continue Learning'}
-                      </Link>
-                      <Link to={`/courses/${course.id}`} className="btn btn-outline">
-                        Course Details
-                      </Link>
-                    </div>
+                    <span className="progress-text">{course.progress_percentage}% Complete</span>
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Course Content */}
+                <div className="course-content-section">
+                  <div className="course-header">
+                    <h3 className="course-title">{course.title}</h3>
+                    <div className="course-meta">
+                      <span className="instructor">By {course.instructor_name}</span>
+                      <div className="course-rating">
+                        <span className="stars">⭐ {course.rating}</span>
+                        <span className="students">👥 {course.students}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="course-description">{course.description}</p>
+
+                  <div className="course-details">
+                    <div className="detail-item">
+                      <span className="detail-icon">⏱️</span>
+                      <span>{course.duration}h</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">📁</span>
+                      <span>{course.category}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-icon">🎯</span>
+                      <span>{course.level}</span>
+                    </div>
+                  </div>
+
+                  {/* Course Actions */}
+                  <div className="course-actions">
+                    {course.progress_percentage === 0 ? (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary start-learning"
+                      >
+                        <span className="btn-icon">🚀</span>
+                        Start Learning
+                      </button>
+                    ) : course.progress_percentage === 100 ? (
+                      <button 
+                        onClick={() => handleViewCourse(course.id)}
+                        className="modern-btn success review-course"
+                      >
+                        <span className="btn-icon">📖</span>
+                        Review Course
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleContinueLearning(course.id)}
+                        className="modern-btn primary continue-learning"
+                      >
+                        <span className="btn-icon">▶️</span>
+                        Continue ({course.progress_percentage}%)
+                      </button>
+                    )}
+                    
+                    <button 
+                      onClick={() => handleViewCourse(course.id)}
+                      className="modern-btn ghost"
+                    >
+                      <span className="btn-icon">👁️</span>
+                      Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

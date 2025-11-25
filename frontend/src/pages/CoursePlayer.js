@@ -1,170 +1,129 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import ModernVideoPlayer from '../components/ModernVideoPlayer';
+import './CoursePlayer.css';
 
 const CoursePlayer = () => {
   const { courseId } = useParams();
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  
   const [course, setCourse] = useState(null);
-  const [videos, setVideos] = useState([]);
-  const [currentVideo, setCurrentVideo] = useState(null);
+  const [lectures, setLectures] = useState([]);
+  const [currentLecture, setCurrentLecture] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCourseData = async () => {
-      try {
-        // Fetch course details
-        const courseResponse = await axios.get(`http://localhost:8000/api/courses/${courseId}/`);
-        setCourse(courseResponse.data);
-
-        // Fetch videos for this course
-        const videosResponse = await axios.get('http://localhost:8000/api/video-lectures/');
-        const courseVideos = videosResponse.data.filter(video => video.course === parseInt(courseId));
-        setVideos(courseVideos);
-        
-        if (courseVideos.length > 0) {
-          setCurrentVideo(courseVideos[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching course data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCourseData();
-  }, [courseId]);
-
-  const markAsWatched = async (videoId) => {
+  const fetchCourseData = useCallback(async () => {
     try {
-      await axios.post('http://localhost:8000/api/student-progress/mark_watched/', {
-        video_id: videoId
+      setLoading(true);
+      
+      const courseResponse = await fetch(`http://localhost:8000/api/courses/${courseId}/`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
       });
-      alert('Marked as watched!');
+      
+      if (!courseResponse.ok) {
+        throw new Error('Failed to fetch course');
+      }
+      
+      const courseData = await courseResponse.json();
+      setCourse(courseData);
+
+      const lecturesResponse = await fetch(`http://localhost:8000/api/video-lectures/?course_id=${courseId}`, {
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+      
+      if (!lecturesResponse.ok) {
+        throw new Error('Failed to fetch lectures');
+      }
+      
+      const lecturesData = await lecturesResponse.json();
+      setLectures(lecturesData);
+      
+      if (lecturesData.length > 0) {
+        setCurrentLecture(lecturesData[0]);
+      }
+
+      setLoading(false);
     } catch (error) {
-      console.error('Error marking as watched:', error);
+      console.error('Error fetching course data:', error);
+      setLoading(false);
     }
-  };
+  }, [courseId, token]);
 
-  // Function to get full video URL
-  const getVideoUrl = (videoPath) => {
-    if (!videoPath) return null;
-    // If it's already a full URL, return as is
-    if (videoPath.startsWith('http')) return videoPath;
-    // Otherwise, construct the full URL
-    return `http://localhost:8000${videoPath}`;
-  };
+  useEffect(() => {
+    fetchCourseData();
+  }, [fetchCourseData]);
 
-  // Function to get full thumbnail URL
-  const getThumbnailUrl = (thumbnailPath) => {
-    if (!thumbnailPath) return null;
-    // If it's already a full URL, return as is
-    if (thumbnailPath.startsWith('http')) return thumbnailPath;
-    // Otherwise, construct the full URL
-    return `http://localhost:8000${thumbnailPath}`;
+  const handleLectureSelect = (lecture) => {
+    setCurrentLecture(lecture);
   };
 
   if (loading) {
     return (
-      <div className="container">
+      <div className="course-player-loading">
+        <div className="loading-spinner"></div>
         <p>Loading course content...</p>
       </div>
     );
   }
 
-  if (!course) {
-    return (
-      <div className="container">
-        <h1>Course not found</h1>
-      </div>
-    );
-  }
-
   return (
-    <div className="container">
-      <div className="course-player">
-        <div className="player-header">
-          <h1>{course.title}</h1>
-          <p>{course.description}</p>
+    <div className="course-player-container">
+      <div className="course-player-header">
+        <button onClick={() => navigate('/courses')} className="back-button">
+          ← Back to Courses
+        </button>
+        <h1>{course?.title || 'Course Not Found'}</h1>
+        <p>{course?.description || 'No description available'}</p>
+      </div>
+
+      <div className="course-player-content">
+        <div className="video-section">
+          {currentLecture ? (
+            <ModernVideoPlayer
+              videoURL={currentLecture.video_file}
+              title={currentLecture.title}
+            />
+          ) : (
+            <div className="no-lecture">
+              <h3>No lecture selected</h3>
+              <p>Choose a lecture from the list to start learning</p>
+            </div>
+          )}
         </div>
 
-        <div className="player-layout">
-          <div className="video-section">
-            {currentVideo ? (
-              <div className="video-player">
-                <h3>{currentVideo.title}</h3>
-                {currentVideo.video_file ? (
-                  <div className="video-container">
-                    <video 
-                      controls 
-                      style={{ width: '100%', maxHeight: '500px' }}
-                      onEnded={() => markAsWatched(currentVideo.id)}
-                      poster={getThumbnailUrl(course.thumbnail)}
-                    >
-                      <source src={getVideoUrl(currentVideo.video_file)} type="video/mp4" />
-                      <source src={getVideoUrl(currentVideo.video_file)} type="video/webm" />
-                      <source src={getVideoUrl(currentVideo.video_file)} type="video/ogg" />
-                      Your browser does not support the video tag.
-                    </video>
-                    <div className="video-fallback">
-                      <p>If the video doesn't play, try:</p>
-                      <a href={getVideoUrl(currentVideo.video_file)} target="_blank" rel="noopener noreferrer">
-                        Download the video
-                      </a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="video-placeholder">
-                    <p>Video file not available</p>
-                  </div>
-                )}
-                <p>{currentVideo.description}</p>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => markAsWatched(currentVideo.id)}
-                >
-                  Mark as Watched
-                </button>
+        <div className="lectures-section">
+          <div className="lectures-header">
+            <h3>Course Lectures</h3>
+            <span>{lectures.length} lecture{lectures.length !== 1 ? 's' : ''}</span>
+          </div>
+          
+          <div className="lectures-list">
+            {lectures.length === 0 ? (
+              <div className="empty-lectures">
+                <div className="empty-icon">📹</div>
+                <p>No lectures available</p>
               </div>
             ) : (
-              <div className="no-video">
-                <h3>No videos available for this course</h3>
-                <p>Check back later for video content.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="playlist-section">
-            <h3>Course Content ({videos.length} videos)</h3>
-            <div className="video-list">
-              {videos.map(video => (
-                <div 
-                  key={video.id} 
-                  className={`video-item ${currentVideo?.id === video.id ? 'active' : ''}`}
-                  onClick={() => setCurrentVideo(video)}
+              lectures.map((lecture, index) => (
+                <div
+                  key={lecture.id}
+                  className={`lecture-item ${currentLecture?.id === lecture.id ? 'active' : ''}`}
+                  onClick={() => handleLectureSelect(lecture)}
                 >
-                  <div className="video-thumbnail">
-                    {course.thumbnail ? (
-                      <img 
-                        src={getThumbnailUrl(course.thumbnail)} 
-                        alt={video.title}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'block';
-                        }}
-                      />
-                    ) : null}
-                    <div className="thumbnail-fallback" style={{display: course.thumbnail ? 'none' : 'block'}}>
-                      🎬
-                    </div>
-                  </div>
-                  <div className="video-info">
-                    <h4>{video.title}</h4>
-                    <p>{video.duration_minutes} min</p>
-                    <p className="video-order">Video {video.order}</p>
+                  <div className="lecture-number">{index + 1}</div>
+                  <div className="lecture-info">
+                    <h4>{lecture.title}</h4>
+                    <p>{lecture.duration ? `${Math.floor(lecture.duration / 60)}:${(lecture.duration % 60).toString().padStart(2, '0')}` : '10:00'}</p>
                   </div>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </div>
         </div>
       </div>

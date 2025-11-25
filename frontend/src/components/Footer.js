@@ -15,19 +15,19 @@ const Footer = () => {
                 Equipping believers with sound biblical apologetics and theological education.
               </p>
               <div className="social-links">
-                <a href="#" className="social-link" aria-label="Facebook" onClick={(e) => e.preventDefault()}>
+                <a href="https://web.facebook.com" className="social-link" aria-label="Facebook" onClick={(e) => e.preventDefault()}>
                   📘
                 </a>
-                <a href="#" className="social-link" aria-label="Twitter" onClick={(e) => e.preventDefault()}>
+                <a href="https://x.com/" className="social-link" aria-label="Twitter" onClick={(e) => e.preventDefault()}>
                   🐦
                 </a>
-                <a href="#" className="social-link" aria-label="Instagram" onClick={(e) => e.preventDefault()}>
+                <a href="https://web.instagram.com/" className="social-link" aria-label="Instagram" onClick={(e) => e.preventDefault()}>
                   📷
                 </a>
-                <a href="#" className="social-link" aria-label="YouTube" onClick={(e) => e.preventDefault()}>
+                <a href="https://www.youtube.com/apolomicsapologeticalschool" className="social-link" aria-label="YouTube" onClick={(e) => e.preventDefault()}>
                   📺
                 </a>
-                <a href="#" className="social-link" aria-label="Telegram" onClick={(e) => e.preventDefault()}>
+                <a href="https://t.me/apolomics" className="social-link" aria-label="Telegram" onClick={(e) => e.preventDefault()}>
                   ✈️
                 </a>
               </div>

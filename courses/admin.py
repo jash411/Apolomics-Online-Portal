@@ -1,15 +1,14 @@
 from django.contrib import admin
 from .models import Course, VideoLecture, Enrollment, StudentProgress
 
-# Register each model separately to avoid circular imports
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ['title', 'instructor', 'level', 'duration_hours', 'is_published']
+    list_display = ['title', 'instructor', 'level', 'is_published']  # Removed duration_hours
     list_filter = ['level', 'is_published', 'instructor']
 
 @admin.register(VideoLecture)
 class VideoLectureAdmin(admin.ModelAdmin):
-    list_display = ['title', 'course', 'duration_minutes', 'order']
+    list_display = ['title', 'course', 'order']  # Removed duration_minutes
     list_filter = ['course']
 
 @admin.register(Enrollment)

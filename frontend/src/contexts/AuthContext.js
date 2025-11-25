@@ -13,12 +13,14 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token')); // Add token state
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+      axios.defaults.headers.common['Authorization'] = `Token ${storedToken}`;
       
       axios.get('http://localhost:8000/api/users/current_user/')
         .then(response => {
@@ -27,6 +29,7 @@ export const AuthProvider = ({ children }) => {
         .catch(error => {
           console.error('Error fetching current user:', error);
           localStorage.removeItem('token');
+          setToken(null); // Clear token state
           delete axios.defaults.headers.common['Authorization'];
         })
         .finally(() => {
@@ -43,6 +46,7 @@ export const AuthProvider = ({ children }) => {
       
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        setToken(response.data.token); // Set token state
         axios.defaults.headers.common['Authorization'] = `Token ${response.data.token}`;
         setUser(response.data.user);
         return { success: true, user: response.data.user };
@@ -63,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        setToken(response.data.token); // Set token state
         axios.defaults.headers.common['Authorization'] = `Token ${response.data.token}`;
         setUser(response.data.user);
         return { success: true, user: response.data.user };
@@ -78,11 +83,11 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    setToken(null); // Clear token state
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
   };
 
-  // ADD THESE ROLE-CHECKING FUNCTIONS
   const isStudent = () => {
     return user && user.user_type === 'student';
   };
@@ -97,13 +102,14 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    token, // ADD THIS - this was missing!
     register,
     login,
     logout,
     loading,
-    isStudent,    // Add this
-    isInstructor, // Add this
-    isAdmin       // Add this
+    isStudent,
+    isInstructor,
+    isAdmin
   };
 
   return (
