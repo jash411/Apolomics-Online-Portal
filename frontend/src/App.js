@@ -14,6 +14,8 @@ import CoursePlayer from './pages/CoursePlayer';
 import PlaceholderPage from './pages/PlaceHolderPage';
 import './App.css';
 import InstructorDashboard from './pages/InstructorDashboard';
+import CourseManagement from './pages/CourseManagement';
+import SequentialCoursePlayer from './pages/SequentialCoursePlayer';
 
 // Protected Route component - MOVE THIS BEFORE App function
 const ProtectedRoute = ({ children }) => {
@@ -87,6 +89,22 @@ function App() {
                   <InstructorRoute>
                     <InstructorDashboard />
                   </InstructorRoute>
+                } 
+              />
+             <Route 
+                path="/manage-course/:courseId" 
+                element={
+                  <InstructorRoute>
+                    <CourseManagement />
+                  </InstructorRoute>
+                } 
+              />
+              <Route 
+                path="/learn-sequential/:courseId" 
+                element={
+                  <ProtectedRoute>
+                    <SequentialCoursePlayer />
+                  </ProtectedRoute>
                 } 
               />
               

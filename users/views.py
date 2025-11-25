@@ -2,7 +2,7 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
+from django.contrib.auth import login, authenticate  # ADD 'login' HERE
 from .models import User
 from .serializers import UserSerializer, UserRegistrationSerializer, UserLoginSerializer
 
@@ -36,6 +36,10 @@ class UserViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             user = serializer.validated_data['user']
             token, created = Token.objects.get_or_create(user=user)
+            
+            # ADD THIS LINE - Create session
+            login(request, user)
+            
             return Response({
                 'user': UserSerializer(user).data,
                 'token': token.key,

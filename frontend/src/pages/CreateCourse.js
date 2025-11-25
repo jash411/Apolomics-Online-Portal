@@ -8,15 +8,15 @@ const CreateCourse = () => {
     title: '',
     description: '',
     level: 'beginner',
-    duration_hours: 10,
-    price: 0,
+    duration: 10,
+    price: '0.00',
     is_published: false
   });
   const [thumbnail, setThumbnail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const navigate = useNavigate();
 
   if (!user || user.user_type !== 'instructor') {
@@ -29,9 +29,10 @@ const CreateCourse = () => {
   }
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     });
   };
 
@@ -45,34 +46,30 @@ const CreateCourse = () => {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      
-      // Create FormData to handle file upload
-      const submitData = new FormData();
-      submitData.append('title', formData.title);
-      submitData.append('description', formData.description);
-      submitData.append('level', formData.level);
-      submitData.append('duration_hours', formData.duration_hours);
-      submitData.append('price', formData.price);
-      submitData.append('is_published', formData.is_published);
-      
-      if (thumbnail) {
-        submitData.append('thumbnail', thumbnail);
-      }
+      console.log('Creating course with:', formData);
 
-      // Remove unused response variable by not assigning it
-      await axios.post('http://localhost:8000/api/courses/', submitData, {
+      // Use JSON instead of FormData (for now, without thumbnail)
+      const response = await axios.post('http://localhost:8000/api/courses/', {
+        title: formData.title,
+        description: formData.description,
+        level: formData.level,
+        duration: parseInt(formData.duration),
+        price: formData.price,
+        is_published: formData.is_published
+      }, {
         headers: {
           'Authorization': `Token ${token}`,
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'application/json'
         }
       });
 
+      console.log('✅ Course created successfully:', response.data);
       alert('Course created successfully!');
       navigate('/my-courses');
+      
     } catch (error) {
-      console.error('Create course error:', error);
-      setError(error.response?.data?.error || 'Failed to create course');
+      console.error('❌ Course creation failed:', error.response?.data);
+      setError('Failed to create course: ' + (error.response?.data?.error || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -117,7 +114,7 @@ const CreateCourse = () => {
               accept="image/*"
               onChange={handleThumbnailChange}
             />
-            <small>Upload a thumbnail image for your course</small>
+            <small>Upload a thumbnail image for your course (optional for now)</small>
           </div>
 
           <div className="form-group">
@@ -133,8 +130,8 @@ const CreateCourse = () => {
             <label>Duration (hours):</label>
             <input
               type="number"
-              name="duration_hours"
-              value={formData.duration_hours}
+              name="duration"
+              value={formData.duration}
               onChange={handleChange}
               min="1"
               required
@@ -159,7 +156,7 @@ const CreateCourse = () => {
                 type="checkbox"
                 name="is_published"
                 checked={formData.is_published}
-                onChange={(e) => setFormData({...formData, is_published: e.target.checked})}
+                onChange={handleChange}
               />
               Publish Course
             </label>

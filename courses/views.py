@@ -4,12 +4,24 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import *
 from .serializers import *
+from django.utils import timezone
 
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.filter(is_published=True)
     serializer_class = CourseSerializer
     
+    def get_queryset(self):
+        # Allow instructors to see their unpublished courses
+        if self.request.user.is_authenticated and self.request.user.user_type == 'instructor':
+            return Course.objects.filter(instructor=self.request.user)
+        return Course.objects.filter(is_published=True)
+    
+    def perform_create(self, serializer):
+        # Automatically set the instructor to the current user
+        serializer.save(instructor=self.request.user)
+    
     def get_serializer_context(self):
+        # Pass the request to the serializer
         return {'request': self.request}
     
     @action(detail=False, methods=['get'])

@@ -61,9 +61,10 @@ const MyCourses = () => {
     }
   };
 
-  const handleContinueLearning = (courseId) => {
-    navigate(`/learn/${courseId}`);
-  };
+ // Change the handleContinueLearning function:
+    const handleContinueLearning = (courseId) => {
+      navigate(`/learn-sequential/${courseId}`); // Changed from /learn to /learn-sequential
+    };
 
   const handleViewCourse = (courseId) => {
     navigate(`/course/${courseId}`);

@@ -61,25 +61,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (credentials) => {
-    try {
-      const response = await axios.post('http://localhost:8000/api/users/login/', credentials);
+ const login = async (credentials) => {
+  try {
+    console.log('🔐 Attempting login with:', credentials);
+    
+    const response = await axios.post('http://localhost:8000/api/users/login/', {
+      username: credentials.username,
+      password: credentials.password
+    });
+
+    console.log('✅ Login API response:', response.data);
+    
+    if (response.data.token) {
+      // Store token and user data
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        setToken(response.data.token); // Set token state
-        axios.defaults.headers.common['Authorization'] = `Token ${response.data.token}`;
-        setUser(response.data.user);
-        return { success: true, user: response.data.user };
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Login failed' 
-      };
+      // Update context state
+      setUser(response.data.user);
+      setToken(response.data.token);
+      
+      console.log('✅ Login successful, user:', response.data.user);
+      return { success: true, user: response.data.user };
+    } else {
+      console.log('❌ No token in response');
+      return { success: false, error: 'No token received' };
     }
-  };
+    
+  } catch (error) {
+    console.error('❌ Login failed:', error);
+    console.error('❌ Error details:', error.response?.data);
+    
+    return { 
+      success: false, 
+      error: error.response?.data?.error || error.response?.data?.message || 'Login failed' 
+    };
+  }
+};
 
   const logout = () => {
     localStorage.removeItem('token');

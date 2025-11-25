@@ -29,13 +29,19 @@ class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = '__all__'
-    
+        read_only_fields = ['instructor', 'created_at']  # Make sure instructor is read-only
+
+    def create(self, validated_data):
+        # Automatically set the instructor to the current user
+        validated_data['instructor'] = self.context['request'].user
+        return super().create(validated_data)
+
     def get_is_enrolled(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return Enrollment.objects.filter(student=request.user, course=obj).exists()
         return False
-    
+
     def get_progress_percentage(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
