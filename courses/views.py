@@ -61,47 +61,80 @@ class VideoLectureViewSet(viewsets.ModelViewSet):
         return context
 
 class StudentProgressViewSet(viewsets.ModelViewSet):
-    queryset = StudentProgress.objects.all()
     serializer_class = StudentProgressSerializer
+    
+    # FIX: Add proper queryset filtering
+    def get_queryset(self):
+        """Only return progress records for the current user"""
+        if self.request.user.is_authenticated:
+            return StudentProgress.objects.filter(student=self.request.user)
+        return StudentProgress.objects.none()
     
     @action(detail=False, methods=['post'])
     def update_progress(self, request):
-        video_lecture_id = request.data.get('video_lecture')
-        progress = request.data.get('progress', 0)
-        watched = request.data.get('watched', False)
-        
         try:
+            video_lecture_id = request.data.get('video_lecture')
+            progress = request.data.get('progress', 0)
+            watched = request.data.get('watched', False)
+            
+            print(f"Updating progress - Video: {video_lecture_id}, Progress: {progress}, Watched: {watched}")
+            
+            if not video_lecture_id:
+                return Response({'error': 'video_lecture is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
             video_lecture = VideoLecture.objects.get(id=video_lecture_id)
             progress_obj, created = StudentProgress.objects.get_or_create(
-                student=request.user,
+                student=request.user,  # ← This correctly sets the student
                 video_lecture=video_lecture
             )
-            progress_obj.progress = progress
+            progress_obj.progress = float(progress)
             if watched:
                 progress_obj.watched = True
             progress_obj.save()
             
+            print(f"Progress updated successfully - Created: {created}")
+            
             # Check if all lectures are completed
             self.check_course_completion(request.user, video_lecture.course)
             
-            return Response({'status': 'progress updated'})
+            return Response({
+                'status': 'progress updated',
+                'video_lecture': video_lecture_id,
+                'progress': progress,
+                'watched': watched,
+                'created': created
+            })
+            
         except VideoLecture.DoesNotExist:
-            return Response({'error': 'Video lecture not found'}, status=404)
+            print(f"Video lecture not found: {video_lecture_id}")
+            return Response({'error': 'Video lecture not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error updating progress: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def check_course_completion(self, student, course):
-        total_lectures = course.lectures.count()
-        completed_lectures = StudentProgress.objects.filter(
-            student=student,
-            video_lecture__course=course,
-            watched=True
-        ).count()
-        
-        if total_lectures > 0 and completed_lectures == total_lectures:
-            enrollment = Enrollment.objects.get(student=student, course=course)
-            if not enrollment.completed:
-                enrollment.completed = True
-                enrollment.completed_at = timezone.now()
-                enrollment.save()
+        try:
+            total_lectures = course.lectures.count()
+            completed_lectures = StudentProgress.objects.filter(
+                student=student,  # ← This correctly filters by student
+                video_lecture__course=course,
+                watched=True
+            ).count()
+            
+            print(f"Course completion check - Total: {total_lectures}, Completed: {completed_lectures}")
+            
+            if total_lectures > 0 and completed_lectures == total_lectures:
+                enrollment, created = Enrollment.objects.get_or_create(
+                    student=student,
+                    course=course
+                )
+                if not enrollment.completed:
+                    enrollment.completed = True
+                    enrollment.completed_at = timezone.now()
+                    enrollment.save()
+                    print(f"Course marked as completed: {course.title}")
+        except Exception as e:
+            print(f"Error in course completion check: {str(e)}")
 
 class AssignmentViewSet(viewsets.ModelViewSet):
     queryset = Assignment.objects.all()
@@ -122,12 +155,19 @@ class AssignmentSubmissionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(assignment__course__instructor=self.request.user)
         return queryset
     
+    def perform_create(self, serializer):
+        # Automatically set the student
+        serializer.save(student=self.request.user)
+    
+    def get_serializer_context(self):
+        return {'request': self.request}
+    
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
         submission = self.get_object()
         score = request.data.get('score')
         feedback = request.data.get('feedback')
-        status = request.data.get('status')
+        status = request.data.get('status', 'reviewed')
         
         submission.score = score
         submission.feedback = feedback

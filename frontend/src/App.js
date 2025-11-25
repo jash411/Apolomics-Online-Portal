@@ -16,6 +16,11 @@ import './App.css';
 import InstructorDashboard from './pages/InstructorDashboard';
 import CourseManagement from './pages/CourseManagement';
 import SequentialCoursePlayer from './pages/SequentialCoursePlayer';
+import AssignmentSubmission from './components/AssignmentSubmission';
+import ExamComponent from './components/ExamComponent';
+import Certificate from './components/Certificate';
+import AssignmentReview  from './pages/AssignmentReview';
+import Analytics from './pages/Analytics';
 
 // Protected Route component - MOVE THIS BEFORE App function
 const ProtectedRoute = ({ children }) => {
@@ -104,6 +109,46 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SequentialCoursePlayer />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/analytics" 
+                element={
+                  <ProtectedRoute>
+                    <Analytics />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/assignment/:courseId" 
+                element={
+                  <ProtectedRoute>
+                    <AssignmentSubmission />
+                  </ProtectedRoute>
+                } 
+              />
+                <Route 
+                path="/assignment-review" 
+                element={
+                  <InstructorRoute>
+                    <AssignmentReview />
+                  </InstructorRoute>
+                } 
+              />
+              <Route 
+                path="/exam/:courseId" 
+                element={
+                  <ProtectedRoute>
+                    <ExamComponent />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/certificate/:courseId" 
+                element={
+                  <ProtectedRoute>
+                    <Certificate />
                   </ProtectedRoute>
                 } 
               />

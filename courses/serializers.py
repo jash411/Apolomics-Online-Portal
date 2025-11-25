@@ -93,6 +93,12 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = AssignmentSubmission
         fields = '__all__'
+        read_only_fields = ['student', 'submitted_at', 'reviewed_by', 'reviewed_at', 'status']
+    
+    def create(self, validated_data):
+        # Automatically set the student to the current user
+        validated_data['student'] = self.context['request'].user
+        return super().create(validated_data)
 
 class ChoiceSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,159 +1,154 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import './AssignmentSubmission.css';
+import './ExamComponent.css';
 
-const AssignmentSubmission = ({ courseId, onComplete }) => {
-  const { token } = useAuth();
-  const [assignment, setAssignment] = useState(null);
-  const [submission, setSubmission] = useState(null);
-  const [submissionText, setSubmissionText] = useState('');
-  const [submissionFile, setSubmissionFile] = useState(null);
-  const [loading, setLoading] = useState(true);
+const ExamComponent = () => {
+  const { courseId } = useParams();
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [exam, setExam] = useState(null);
+  const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAssignment();
+    checkAssignmentApproval();
   }, [courseId]);
 
-  const fetchAssignment = async () => {
+  const checkAssignmentApproval = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/assignments/?course_id=${courseId}`, {
+      // First, check if assignment is approved
+      const assignmentResponse = await fetch(`http://localhost:8000/api/assignments/?course_id=${courseId}`, {
         headers: { 'Authorization': `Token ${token}` }
       });
-      const data = await response.json();
       
-      if (data.length > 0) {
-        setAssignment(data[0]);
-        checkSubmission(data[0].id);
-      } else {
-        setLoading(false);
+      if (assignmentResponse.ok) {
+        const assignments = await assignmentResponse.json();
+        if (assignments.length > 0) {
+          const assignment = assignments[0];
+          
+          // Check submission status
+          const submissionResponse = await fetch(`http://localhost:8000/api/assignment-submissions/?assignment=${assignment.id}`, {
+            headers: { 'Authorization': `Token ${token}` }
+          });
+          
+          if (submissionResponse.ok) {
+            const submissions = await submissionResponse.json();
+            if (submissions.length > 0 && submissions[0].status === 'approved') {
+              // Assignment approved, load exam
+              fetchExam();
+            } else {
+              alert('Your assignment must be approved before taking the exam.');
+              navigate(`/assignment/${courseId}`);
+            }
+          }
+        }
       }
     } catch (error) {
-      console.error('Error fetching assignment:', error);
+      console.error('Error checking assignment approval:', error);
       setLoading(false);
     }
   };
 
-  const checkSubmission = async (assignmentId) => {
+  const fetchExam = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/assignment-submissions/?assignment=${assignmentId}`, {
+      // Fetch exam for this course
+      const response = await fetch(`http://localhost:8000/api/exams/?course_id=${courseId}`, {
         headers: { 'Authorization': `Token ${token}` }
       });
-      const data = await response.json();
       
-      if (data.length > 0) {
-        setSubmission(data[0]);
+      if (response.ok) {
+        const exams = await response.json();
+        if (exams.length > 0) {
+          setExam(exams[0]);
+        } else {
+          alert('No exam available for this course yet.');
+          navigate(`/learn-sequential/${courseId}`);
+        }
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error checking submission:', error);
+      console.error('Error fetching exam:', error);
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmitExam = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
-    const formData = new FormData();
-    formData.append('assignment', assignment.id);
-    formData.append('submission_text', submissionText);
-    if (submissionFile) {
-      formData.append('submission_file', submissionFile);
-    }
-
     try {
-      const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
+      const response = await fetch(`http://localhost:8000/api/exams/${exam.id}/submit/`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Token ${token}`
         },
-        body: formData
+        body: JSON.stringify({
+          answers: answers,
+          student: user.id
+        })
       });
 
       if (response.ok) {
         const result = await response.json();
-        setSubmission(result);
-        alert('Assignment submitted successfully! Wait for instructor review.');
-      } else {
-        alert('Error submitting assignment');
+        alert(`Exam submitted! Score: ${result.score}/${exam.max_score}`);
+        
+        if (result.passed) {
+          navigate(`/certificate/${courseId}`);
+        } else {
+          alert('You did not pass the exam. Please try again.');
+        }
       }
     } catch (error) {
-      console.error('Error submitting assignment:', error);
-      alert('Error submitting assignment');
+      console.error('Error submitting exam:', error);
+      alert('Error submitting exam');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div>Loading assignment...</div>;
-  if (!assignment) return <div>No assignment found for this course.</div>;
+  if (loading) return <div className="loading">Loading exam...</div>;
+  if (!exam) return <div className="no-exam">No exam available</div>;
 
   return (
-    <div className="assignment-submission">
-      <h2>📝 Course Assignment</h2>
-      
-      <div className="assignment-details">
-        <h3>{assignment.title}</h3>
-        <p>{assignment.description}</p>
-        {assignment.due_date && (
-          <p><strong>Due Date:</strong> {new Date(assignment.due_date).toLocaleDateString()}</p>
-        )}
-        <p><strong>Max Score:</strong> {assignment.max_score}</p>
+    <div className="exam-container">
+      <div className="exam-header">
+        <button onClick={() => navigate(`/assignment/${courseId}`)} className="back-button">
+          ← Back to Assignment
+        </button>
+        <h1>{exam.title}</h1>
       </div>
 
-      {submission ? (
-        <div className="submission-status">
-          <h4>Your Submission Status: {submission.status}</h4>
-          {submission.submission_text && (
-            <div className="submission-content">
-              <h5>Your Answer:</h5>
-              <p>{submission.submission_text}</p>
-            </div>
-          )}
-          {submission.feedback && (
-            <div className="instructor-feedback">
-              <h5>Instructor Feedback:</h5>
-              <p>{submission.feedback}</p>
-              {submission.score && <p><strong>Score:</strong> {submission.score}/{assignment.max_score}</p>}
-            </div>
-          )}
-          
-          {submission.status === 'approved' && (
-            <button className="continue-button" onClick={onComplete}>
-              Continue to Exam →
-            </button>
-          )}
+      <form onSubmit={handleSubmitExam} className="exam-form">
+        <div className="exam-info">
+          <p>{exam.description}</p>
+          <div className="exam-meta">
+            <span>Max Score: {exam.max_score}</span>
+            <span>Time Limit: {exam.time_limit} minutes</span>
+          </div>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="submission-form">
-          <div className="form-group">
-            <label htmlFor="submissionText">Your Answer:</label>
+
+        <div className="questions-section">
+          <h3>Exam Questions</h3>
+          {/* Add your questions rendering here */}
+          <div className="question">
+            <p>This is a sample question. Implement your actual exam questions here.</p>
             <textarea
-              id="submissionText"
-              value={submissionText}
-              onChange={(e) => setSubmissionText(e.target.value)}
-              rows="10"
-              required
+              placeholder="Your answer..."
+              rows="4"
+              onChange={(e) => setAnswers({...answers, question1: e.target.value})}
             />
           </div>
-          
-          <div className="form-group">
-            <label htmlFor="submissionFile">Upload File (Optional):</label>
-            <input
-              type="file"
-              id="submissionFile"
-              onChange={(e) => setSubmissionFile(e.target.files[0])}
-            />
-          </div>
-          
-          <button type="submit" disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Assignment'}
-          </button>
-        </form>
-      )}
+        </div>
+
+        <button type="submit" disabled={submitting} className="btn-primary">
+          {submitting ? 'Submitting...' : 'Submit Exam'}
+        </button>
+      </form>
     </div>
   );
 };
 
-export default AssignmentSubmission;
+export default ExamComponent;

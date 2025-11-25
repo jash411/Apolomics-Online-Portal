@@ -376,17 +376,72 @@ const ExamsTab = ({ courses, exams }) => {
     </div>
   );
 };
+/// Assignments Tab Component
+const AssignmentsTab = () => {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [pendingCount, setPendingCount] = useState(0);
 
-// Assignments Tab Component
-const AssignmentsTab = () => (
-  <div className="assignments-tab">
-    <h2>Assignment Reviews</h2>
-    <div className="empty-state">
-      <div className="empty-icon">📝</div>
-      <p>No assignments to review</p>
-      <p>Student submissions will appear here for review</p>
+  useEffect(() => {
+    fetchPendingCount();
+  }, []);
+
+  const fetchPendingCount = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      if (response.ok) {
+        const submissions = await response.json();
+        const pending = submissions.filter(sub => 
+          sub.status === 'submitted' || sub.status === 'under_review'
+        ).length;
+        setPendingCount(pending);
+      }
+    } catch (error) {
+      console.error('Error fetching pending count:', error);
+    }
+  };
+
+  return (
+    <div className="assignments-tab">
+      <div className="tab-header">
+        <h2>Assignment Reviews</h2>
+        <button 
+          onClick={() => navigate('/assignment-review')}
+          className="btn-primary"
+        >
+          Review Assignments ({pendingCount})
+        </button>
+      </div>
+
+      {pendingCount === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📝</div>
+          <p>No assignments to review</p>
+          <p>Student submissions will appear here for review</p>
+        </div>
+      ) : (
+        <div className="assignments-overview">
+          <div className="alert alert-info">
+            <strong>You have {pendingCount} assignments waiting for review.</strong>
+            <p>Click "Review Assignments" to start reviewing student submissions.</p>
+          </div>
+          
+          <div className="quick-stats">
+            <h4>Quick Actions:</h4>
+            <ul>
+              <li>Review and grade submissions</li>
+              <li>Provide constructive feedback</li>
+              <li>Approve assignments to unlock exams</li>
+              <li>Reject assignments that need improvement</li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export default InstructorDashboard;

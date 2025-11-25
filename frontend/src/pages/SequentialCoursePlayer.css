@@ -435,3 +435,144 @@
     text-align: center;
   }
 }
+/* Completion Section Styles */
+.completion-section {
+  padding: 2rem;
+  border-top: 1px solid #e0e0e0;
+  background: linear-gradient(135deg, #f0f9ff, #e6f7ff);
+}
+
+.completion-message h4 {
+  color: #28a745;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.next-steps-buttons {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.btn-primary.large {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.next-steps-info {
+  margin-top: 1rem;
+  color: #666;
+  font-style: italic;
+}
+
+.progress-summary {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+}
+
+.progress-summary h5 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.progress-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+}
+
+.progress-item.completed {
+  background: #f0f9f0;
+  color: #28a745;
+}
+
+.progress-item.pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.progress-item .status-icon {
+  font-size: 1.2rem;
+}
+/* Assignment Status Styles */
+.assignment-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.assignment-status.pending {
+  color: #ffc107;
+}
+
+.assignment-status.under-review {
+  color: #17a2b8;
+}
+
+.assignment-status.approved {
+  color: #28a745;
+}
+
+.assignment-status.rejected {
+  color: #dc3545;
+}
+
+.assignment-status .score {
+  font-size: 0.9em;
+  opacity: 0.8;
+  margin-left: auto;
+}
+
+/* Progress Items */
+.progress-items .progress-item.available {
+  color: #17a2b8;
+}
+
+.progress-items .progress-item.under-review {
+  color: #ffc107;
+}
+
+.progress-items .progress-item.rejected {
+  color: #dc3545;
+}
+
+/* Button Styles */
+.btn-success {
+  background: #28a745;
+  color: white;
+  border: none;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #dee2e6;
+  color: #6c757d;
+}
+
+.btn-outline:hover {
+  background: #f8f9fa;
+}
+
+.btn-primary.large,
+.btn-success.large,
+.btn-outline.large {
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+}

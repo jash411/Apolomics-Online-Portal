@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ModernVideoPlayer from '../components/ModernVideoPlayer';
 import './SequentialCoursePlayer.css';
+import { filterByCurrentUser } from '../utils/securityFilter';
 
 const SequentialCoursePlayer = () => {
   const { courseId } = useParams();
@@ -16,6 +17,8 @@ const SequentialCoursePlayer = () => {
   const [loading, setLoading] = useState(true);
   const [isUnlocked, setIsUnlocked] = useState(true);
   const [userProgress, setUserProgress] = useState({});
+  const [assignmentStatus, setAssignmentStatus] = useState(null); // NEW: Track assignment status
+  const [assignment, setAssignment] = useState(null); // NEW: Track assignment details
 
   const fetchCourseData = useCallback(async () => {
     try {
@@ -43,18 +46,28 @@ const SequentialCoursePlayer = () => {
       setLectures(lecturesData);
 
       // Fetch user progress for this course
-      const progressResponse = await fetch(`http://localhost:8000/api/progress/`, {
-        headers: { 'Authorization': `Token ${token}` }
-      });
-      
-      let progressMap = {};
-      if (progressResponse.ok) {
-        const progressData = await progressResponse.json();
-        progressData.forEach(progress => {
-          progressMap[progress.video_lecture] = progress;
+      // In fetchCourseData function - REPLACE THE PROGRESS FETCHING PART:
+
+        const progressResponse = await fetch(`http://localhost:8000/api/progress/`, {
+          headers: { 'Authorization': `Token ${token}` }
         });
-      }
-      setUserProgress(progressMap);
+
+        let progressMap = {};
+        if (progressResponse.ok) {
+          const allProgressData = await progressResponse.json();
+          
+          // USE SECURITY FILTER
+          const myProgressData = filterByCurrentUser(allProgressData, user, 'progress');
+          
+          console.log('✅ Secure progress data:', myProgressData.length, 'records');
+          
+          myProgressData.forEach(progress => {
+            progressMap[progress.video_lecture] = progress;
+          });
+        }
+        setUserProgress(progressMap);
+      // NEW: Fetch assignment and submission status
+      await fetchAssignmentStatus();
 
       // Find first unwatched lecture
       if (lecturesData.length > 0) {
@@ -81,9 +94,61 @@ const SequentialCoursePlayer = () => {
     }
   }, [courseId, token]);
 
+  // NEW: Function to fetch assignment status
+  const fetchAssignmentStatus = async () => {
+    try {
+      // Fetch assignment for this course
+      const assignmentResponse = await fetch(`http://localhost:8000/api/assignments/?course_id=${courseId}`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      if (assignmentResponse.ok) {
+        const assignments = await assignmentResponse.json();
+        if (assignments.length > 0) {
+          const currentAssignment = assignments[0];
+          setAssignment(currentAssignment);
+          
+          // Check if user has submitted this assignment
+          const submissionResponse = await fetch(`http://localhost:8000/api/assignment-submissions/?assignment=${currentAssignment.id}`, {
+            headers: { 'Authorization': `Token ${token}` }
+          });
+          
+          if (submissionResponse.ok) {
+            const submissions = await submissionResponse.json();
+            if (submissions.length > 0) {
+              setAssignmentStatus(submissions[0]);
+            } else {
+              setAssignmentStatus('not_submitted');
+            }
+          }
+        } else {
+          setAssignmentStatus('no_assignment');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching assignment status:', error);
+      setAssignmentStatus('error');
+    }
+  };
+
   useEffect(() => {
     fetchCourseData();
   }, [fetchCourseData]);
+
+  // NEW: Effect to periodically check assignment status when videos are completed
+  useEffect(() => {
+    if (currentIndex === lectures.length - 1 && userProgress[lectures[currentIndex].id]?.watched) {
+      // If all videos are completed, check assignment status every 10 seconds
+      const interval = setInterval(() => {
+        if (assignmentStatus && assignmentStatus.status === 'submitted') {
+          console.log('🔄 Checking for assignment status update...');
+          fetchAssignmentStatus();
+        }
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [currentIndex, lectures, userProgress, assignmentStatus]);
 
   const checkUnlockStatus = (lecture, lecturesList = lectures, progress = userProgress) => {
     console.log('Checking unlock status for lecture:', lecture.order);
@@ -160,7 +225,7 @@ const SequentialCoursePlayer = () => {
   };
 
   const handleVideoProgress = (progressPercent) => {
-    if (currentLecture && progressPercent % 25 === 0) { // Update every 25% to avoid too many requests
+    if (currentLecture && progressPercent % 25 === 0) {
       updateProgress(currentLecture.id, progressPercent, false);
     }
   };
@@ -187,12 +252,10 @@ const SequentialCoursePlayer = () => {
   };
 
   const checkIfLectureAccessible = (lecture, index) => {
-    // First lecture is always accessible
     if (index === 0) {
       return true;
     }
     
-    // Check if previous lecture is completed
     const previousLecture = lectures[index - 1];
     const prevProgress = userProgress[previousLecture.id];
     const isPreviousCompleted = prevProgress && prevProgress.watched;
@@ -226,7 +289,7 @@ const SequentialCoursePlayer = () => {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
       setCurrentLecture(lectures[prevIndex]);
-      setIsUnlocked(true); // Previous lectures are always accessible once reached
+      setIsUnlocked(true);
     }
   };
 
@@ -237,6 +300,115 @@ const SequentialCoursePlayer = () => {
     const isAccessible = checkIfLectureAccessible(lecture, index);
     
     return { isCompleted, isCurrent, isAccessible, progress: progress?.progress || 0 };
+  };
+
+  // NEW: Function to render assignment status and next steps
+  const renderAssignmentStatus = () => {
+    if (!assignment) {
+      return (
+        <div className="assignment-status">
+          <span className="status-icon">📝</span>
+          <span>Assignment: No assignment available</span>
+        </div>
+      );
+    }
+
+    if (assignmentStatus === 'not_submitted' || !assignmentStatus) {
+      return (
+        <div className="assignment-status pending">
+          <span className="status-icon">📝</span>
+          <span>Assignment: Not Submitted</span>
+        </div>
+      );
+    }
+
+    if (assignmentStatus.status === 'submitted' || assignmentStatus.status === 'under_review') {
+      return (
+        <div className="assignment-status under-review">
+          <span className="status-icon">⏳</span>
+          <span>Assignment: Under Review</span>
+          {assignmentStatus.score && (
+            <span className="score">Score: {assignmentStatus.score}/{assignment.max_score}</span>
+          )}
+        </div>
+      );
+    }
+
+    if (assignmentStatus.status === 'approved') {
+      return (
+        <div className="assignment-status approved">
+          <span className="status-icon">✅</span>
+          <span>Assignment: Approved</span>
+          {assignmentStatus.score && (
+            <span className="score">Score: {assignmentStatus.score}/{assignment.max_score}</span>
+          )}
+        </div>
+      );
+    }
+
+    if (assignmentStatus.status === 'rejected') {
+      return (
+        <div className="assignment-status rejected">
+          <span className="status-icon">❌</span>
+          <span>Assignment: Needs Revision</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // NEW: Function to render the main action button
+  const renderMainActionButton = () => {
+    if (!assignment) {
+      return null;
+    }
+
+    if (assignmentStatus === 'not_submitted' || !assignmentStatus) {
+      return (
+        <button 
+          onClick={() => navigate(`/assignment/${courseId}`)}
+          className="btn-primary large"
+        >
+          📝 Submit Assignment
+        </button>
+      );
+    }
+
+    if (assignmentStatus.status === 'submitted' || assignmentStatus.status === 'under_review') {
+      return (
+        <button 
+          onClick={() => navigate(`/assignment/${courseId}`)}
+          className="btn-outline large"
+        >
+          ⏳ Assignment Under Review
+        </button>
+      );
+    }
+
+    if (assignmentStatus.status === 'approved') {
+      return (
+        <button 
+          onClick={() => navigate(`/exam/${courseId}`)}
+          className="btn-success large"
+        >
+          🎯 Take Final Exam
+        </button>
+      );
+    }
+
+    if (assignmentStatus.status === 'rejected') {
+      return (
+        <button 
+          onClick={() => navigate(`/assignment/${courseId}`)}
+          className="btn-primary large"
+        >
+          🔄 Resubmit Assignment
+        </button>
+      );
+    }
+
+    return null;
   };
 
   if (loading) {
@@ -394,14 +566,57 @@ const SequentialCoursePlayer = () => {
           {currentIndex === lectures.length - 1 && userProgress[lectures[currentIndex].id]?.watched && (
             <div className="completion-section">
               <div className="completion-message">
-                <h4>🎉 Course Completed!</h4>
-                <p>You've finished all video lectures!</p>
-                <button 
-                  onClick={() => navigate(`/exam/${courseId}`)}
-                  className="btn-success"
-                >
-                  Take Final Exam
-                </button>
+                <h4>🎉 All Videos Completed!</h4>
+                <p>You've successfully finished all {lectures.length} video lectures!</p>
+                
+                <div className="next-steps-buttons">
+                  {renderMainActionButton()}
+                  <p className="next-steps-info">
+                    {assignmentStatus?.status === 'approved' 
+                      ? 'Your assignment is approved! Take the final exam to complete the course.'
+                      : assignmentStatus?.status === 'rejected'
+                      ? 'Please resubmit your assignment with improvements.'
+                      : assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review'
+                      ? 'Your assignment is under review. You\'ll be notified when it\'s approved.'
+                      : 'Complete the assignment to proceed to the final exam'
+                    }
+                  </p>
+                </div>
+
+                <div className="progress-summary">
+                  <h5>Your Progress:</h5>
+                  <div className="progress-items">
+                    <div className="progress-item completed">
+                      <span className="status-icon">✅</span>
+                      <span>Video Lectures: {lectures.filter(lecture => userProgress[lecture.id]?.watched).length}/{lectures.length}</span>
+                    </div>
+                    
+                    {/* Assignment Status */}
+                    <div className={`progress-item ${
+                      assignmentStatus?.status === 'approved' ? 'completed' :
+                      assignmentStatus?.status === 'rejected' ? 'rejected' :
+                      assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review' ? 'under-review' : 'pending'
+                    }`}>
+                      {renderAssignmentStatus()}
+                    </div>
+                    
+                    {/* Final Exam Status */}
+                    <div className={`progress-item ${
+                      assignmentStatus?.status === 'approved' ? 'available' : 'locked'
+                    }`}>
+                      <span className="status-icon">
+                        {assignmentStatus?.status === 'approved' ? '🎯' : '🔒'}
+                      </span>
+                      <span>Final Exam: {assignmentStatus?.status === 'approved' ? 'Available' : 'Locked'}</span>
+                    </div>
+                    
+                    {/* Certificate Status */}
+                    <div className="progress-item locked">
+                      <span className="status-icon">🔒</span>
+                      <span>Certificate: Locked</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
