@@ -146,8 +146,8 @@ class ExamSubmission(models.Model):
     score = models.IntegerField(null=True, blank=True)
     passed = models.BooleanField(default=False)
     
-    class Meta:
-        unique_together = ['exam', 'student']
+    # class Meta:
+    #     unique_together = ['exam', 'student']
     
     def __str__(self):
         return f"{self.student.username} - {self.exam.title} ({self.score or 'Not scored'})"
@@ -177,5 +177,8 @@ class Certificate(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.certificate_id:
-            self.certificate_id = f"APL{self.course.id:03d}{self.student.id:04d}{self.issued_at.strftime('%y%m%d')}"
+            # Use current timestamp for certificate ID
+            from django.utils import timezone
+            current_time = timezone.now()
+            self.certificate_id = f"APL{self.course.id:03d}{self.student.id:04d}{current_time.strftime('%y%m%d')}"
         super().save(*args, **kwargs)

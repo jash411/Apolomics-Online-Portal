@@ -42,37 +42,37 @@ const AssignmentReview = () => {
     }
   };
 
-  const handleReview = async (submissionId) => {
-    try {
-      console.log('🎯 Reviewing submission:', submissionId, 'with data:', reviewData);
-      
-      const response = await fetch(`http://localhost:8000/api/assignment-submissions/${submissionId}/review/`, {
-        method: 'PATCH', // Changed to PATCH for better API compatibility
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-        body: JSON.stringify(reviewData)
-      });
+const handleReview = async (submissionId) => {
+  try {
+    console.log('🎯 Reviewing submission:', submissionId, 'with data:', reviewData);
+    
+    // Use POST method for the custom review action
+    const response = await fetch(`http://localhost:8000/api/assignment-submissions/${submissionId}/review/`, {
+      method: 'POST', // Use POST instead of PATCH
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${token}`
+      },
+      body: JSON.stringify(reviewData)
+    });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Review successful:', result);
-        alert('Assignment reviewed successfully! Student can now take the final exam.');
-        setReviewing(null);
-        setReviewData({ score: '', feedback: '', status: 'approved' });
-        fetchSubmissions(); // Refresh the list
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Review failed:', errorData);
-        alert('Error reviewing assignment: ' + JSON.stringify(errorData));
-      }
-    } catch (error) {
-      console.error('❌ Error reviewing assignment:', error);
-      alert('Error reviewing assignment: ' + error.message);
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Review successful:', result);
+      alert('Assignment reviewed successfully!');
+      setReviewing(null);
+      setReviewData({ score: '', feedback: '', status: 'approved' });
+      fetchSubmissions();
+    } else {
+      const errorData = await response.json();
+      console.error('❌ Review failed:', errorData);
+      alert('Error reviewing assignment: ' + JSON.stringify(errorData));
     }
-  };
-
+  } catch (error) {
+    console.error('❌ Error reviewing assignment:', error);
+    alert('Error reviewing assignment: ' + error.message);
+  }
+};
   
 
   if (loading) {

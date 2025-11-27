@@ -190,75 +190,134 @@ class ExamSubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = ExamSubmissionSerializer
     
     def create(self, request):
+        print("🎯 STARTING EXAM SUBMISSION")
         exam_id = request.data.get('exam')
+        student_id = request.data.get('student')
         answers = request.data.get('answers', [])
+        
+        print(f"📥 Received: exam={exam_id}, student={student_id}, answers={len(answers)}")
+        print(f"📋 Answers data: {answers}")
         
         try:
             exam = Exam.objects.get(id=exam_id)
-            submission, created = ExamSubmission.objects.get_or_create(
-                exam=exam,
-                student=request.user
-            )
+            student = User.objects.get(id=student_id)
             
-            if not created:
-                return Response({'error': 'Exam already attempted'}, status=400)
+            print(f"✅ Found exam: {exam.title}, student: {student.username}")
+            
+            # Delete any existing submission
+            deleted_count = ExamSubmission.objects.filter(exam=exam, student=student).delete()
+            print(f"🗑️ Deleted {deleted_count} existing submissions")
+            
+            # Create new submission
+            submission = ExamSubmission.objects.create(
+                exam=exam,
+                student=student,
+                score=0,
+                passed=False
+            )
+            print(f"📝 Created submission: {submission.id}")
             
             # Calculate score
             total_score = 0
             earned_score = 0
             
-            for answer_data in answers:
-                question = Question.objects.get(id=answer_data['question_id'])
-                total_score += question.score
-                
-                if question.question_type == 'multiple_choice':
-                    selected_choice = Choice.objects.get(id=answer_data['selected_choice_id'])
-                    is_correct = selected_choice.is_correct
-                    if is_correct:
-                        earned_score += question.score
-                elif question.question_type == 'true_false':
-                    is_correct = (answer_data['answer_text'].lower() == str(question.choices.first().is_correct).lower())
-                    if is_correct:
-                        earned_score += question.score
-                
-                Answer.objects.create(
-                    exam_submission=submission,
-                    question=question,
-                    selected_choice=selected_choice if question.question_type == 'multiple_choice' else None,
-                    answer_text=answer_data.get('answer_text', ''),
-                    is_correct=is_correct
-                )
+            print(f"🔍 Processing {len(answers)} answers...")
             
-            submission.score = (earned_score / total_score) * 100 if total_score > 0 else 0
+            for i, answer_data in enumerate(answers):
+                print(f"📝 Answer {i+1}: {answer_data}")
+                
+                question_id = answer_data.get('question_id')
+                selected_choice_id = answer_data.get('selected_choice_id')
+                
+                print(f"   Question ID: {question_id}, Choice ID: {selected_choice_id}")
+                
+                try:
+                    question = Question.objects.get(id=question_id)
+                    total_score += question.score
+                    print(f"   ✅ Question found: {question.question_text}, Score: {question.score}")
+                    
+                    if question.question_type == 'multiple_choice' and selected_choice_id:
+                        selected_choice = Choice.objects.get(id=selected_choice_id)
+                        print(f"   ✅ Choice found: {selected_choice.choice_text}")
+                        
+                        # Check if choice has is_correct field
+                        is_correct = getattr(selected_choice, 'is_correct', False)
+                        print(f"   ✅ Is correct: {is_correct}")
+                        
+                        if is_correct:
+                            earned_score += question.score
+                            print(f"   🎯 Correct! Earned score: {earned_score}")
+                    
+                    # Create answer record
+                    Answer.objects.create(
+                        exam_submission=submission,
+                        question=question,
+                        selected_choice_id=selected_choice_id,
+                        answer_text=answer_data.get('answer_text', ''),
+                        is_correct=is_correct
+                    )
+                    print(f"   ✅ Answer record created")
+                    
+                except Question.DoesNotExist:
+                    print(f"   ❌ Question not found: {question_id}")
+                except Choice.DoesNotExist:
+                    print(f"   ❌ Choice not found: {selected_choice_id}")
+                except Exception as e:
+                    print(f"   ❌ Error processing answer: {str(e)}")
+            
+            print(f"📊 Final calculation - Total: {total_score}, Earned: {earned_score}")
+            
+            # Calculate final score
+            if total_score > 0:
+                submission.score = (earned_score / total_score) * 100
+            else:
+                submission.score = 0
+                
             submission.passed = submission.score >= exam.passing_score
             submission.submitted_at = timezone.now()
             submission.save()
             
-            # Check if certificate should be issued
-            if submission.passed:
-                self.issue_certificate(request.user, exam.course)
+            print(f"🎯 Final score: {submission.score}% (Passing: {exam.passing_score}%, Passed: {submission.passed})")
             
-            return Response({
+            # Issue certificate if passed
+            certificate_issued = False
+            if submission.passed:
+                certificate = self.issue_certificate(student, exam.course)
+                certificate_issued = certificate is not None
+                print(f"📜 Certificate issued: {certificate_issued}")
+            
+            response_data = {
                 'score': submission.score,
                 'passed': submission.passed,
                 'total_questions': len(answers),
-                'correct_answers': earned_score // 10  # Assuming each question is 10 points
-            })
-        
-        except Exam.DoesNotExist:
-            return Response({'error': 'Exam not found'}, status=404)
+                'correct_answers': earned_score // 10 if total_score > 0 else 0,
+                'certificate_issued': certificate_issued
+            }
+            
+            print("✅ SUBMISSION COMPLETE:", response_data)
+            return Response(response_data)
+            
+        except Exception as e:
+            print(f"❌ SUBMISSION FAILED: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=400)
     
     def issue_certificate(self, student, course):
+        print(f"🎓 Attempting to issue certificate for student {student.id}, course {course.id}")
+        
         # Check if assignment is approved (if exists)
         assignment = Assignment.objects.filter(course=course).first()
         if assignment:
-            submission = AssignmentSubmission.objects.filter(
+            print(f"📝 Checking assignment approval for course {course.id}")
+            submission_exists = AssignmentSubmission.objects.filter(
                 assignment=assignment,
                 student=student,
                 status='approved'
             ).exists()
-            if not submission:
-                return
+            if not submission_exists:
+                print("❌ Assignment not approved - cannot issue certificate")
+                return None
         
         # Check if all videos are watched
         total_lectures = course.lectures.count()
@@ -268,12 +327,21 @@ class ExamSubmissionViewSet(viewsets.ModelViewSet):
             watched=True
         ).count()
         
+        print(f"🎬 Video progress: {completed_lectures}/{total_lectures} lectures completed")
+        
         if completed_lectures == total_lectures:
             certificate, created = Certificate.objects.get_or_create(
                 student=student,
                 course=course
             )
+            if created:
+                print(f"✅ Certificate created: {certificate.id}")
+            else:
+                print(f"ℹ️ Certificate already exists: {certificate.id}")
             return certificate
+        else:
+            print(f"❌ Not all videos completed: {completed_lectures}/{total_lectures}")
+            return None
 
 class CertificateViewSet(viewsets.ModelViewSet):
     queryset = Certificate.objects.all()

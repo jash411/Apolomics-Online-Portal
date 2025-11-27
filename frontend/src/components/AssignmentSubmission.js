@@ -80,40 +80,66 @@ const AssignmentSubmission = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setSubmitting(true);
 
-    try {
-      const submitData = new FormData();
-      submitData.append('assignment', assignment.id);
-      submitData.append('submission_text', formData.submission_text);
-      
-      if (formData.submission_file) {
-        submitData.append('submission_file', formData.submission_file);
-      }
+  try {
+    console.log('🔍 DEBUG: Starting submission...');
+    console.log('Assignment ID:', assignment.id);
+    console.log('User ID:', user.id);
+    console.log('Submission text length:', formData.submission_text.length);
+    console.log('Has file:', !!formData.submission_file);
 
-      const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-        body: submitData
-      });
-
-      if (response.ok) {
-        alert('Assignment submitted successfully!');
-        fetchAssignmentData(); // Refresh data
-      } else {
-        alert('Error submitting assignment');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error submitting assignment');
-    } finally {
-      setSubmitting(false);
+    const submitData = new FormData();
+    submitData.append('assignment', assignment.id);
+    submitData.append('student', user.id); // ← ADD THIS LINE
+    submitData.append('submission_text', formData.submission_text);
+    
+    if (formData.submission_file) {
+      submitData.append('submission_file', formData.submission_file);
     }
-  };
+
+    // Debug: Log FormData contents
+    console.log('📤 FormData contents:');
+    for (let [key, value] of submitData.entries()) {
+      console.log(`   ${key}:`, value);
+    }
+
+    const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${token}`,
+        // Don't set Content-Type - let browser set it automatically
+      },
+      body: submitData
+    });
+
+    console.log('📥 Response Status:', response.status);
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Submission successful:', result);
+      alert('Assignment submitted successfully!');
+      fetchAssignmentData(); // Refresh data
+    } else {
+      const errorText = await response.text();
+      console.error('❌ Submission failed:', response.status, errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        alert('Error submitting assignment: ' + (errorData.error || JSON.stringify(errorData)));
+      } catch {
+        alert(`Error submitting assignment: ${response.status} - ${errorText}`);
+      }
+    }
+  } catch (error) {
+    console.error('💥 Network error:', error);
+    alert('Network error: ' + error.message);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return <div className="loading">Loading assignment...</div>;

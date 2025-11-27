@@ -17,8 +17,8 @@ const SequentialCoursePlayer = () => {
   const [loading, setLoading] = useState(true);
   const [isUnlocked, setIsUnlocked] = useState(true);
   const [userProgress, setUserProgress] = useState({});
-  const [assignmentStatus, setAssignmentStatus] = useState(null); // NEW: Track assignment status
-  const [assignment, setAssignment] = useState(null); // NEW: Track assignment details
+  const [assignmentStatus, setAssignmentStatus] = useState(null);
+  const [assignment, setAssignment] = useState(null);
 
   const fetchCourseData = useCallback(async () => {
     try {
@@ -46,27 +46,26 @@ const SequentialCoursePlayer = () => {
       setLectures(lecturesData);
 
       // Fetch user progress for this course
-      // In fetchCourseData function - REPLACE THE PROGRESS FETCHING PART:
+      const progressResponse = await fetch(`http://localhost:8000/api/progress/`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
 
-        const progressResponse = await fetch(`http://localhost:8000/api/progress/`, {
-          headers: { 'Authorization': `Token ${token}` }
+      let progressMap = {};
+      if (progressResponse.ok) {
+        const allProgressData = await progressResponse.json();
+        
+        // USE SECURITY FILTER
+        const myProgressData = filterByCurrentUser(allProgressData, user, 'progress');
+        
+        console.log('✅ Secure progress data:', myProgressData.length, 'records');
+        
+        myProgressData.forEach(progress => {
+          progressMap[progress.video_lecture] = progress;
         });
+      }
+      setUserProgress(progressMap);
 
-        let progressMap = {};
-        if (progressResponse.ok) {
-          const allProgressData = await progressResponse.json();
-          
-          // USE SECURITY FILTER
-          const myProgressData = filterByCurrentUser(allProgressData, user, 'progress');
-          
-          console.log('✅ Secure progress data:', myProgressData.length, 'records');
-          
-          myProgressData.forEach(progress => {
-            progressMap[progress.video_lecture] = progress;
-          });
-        }
-        setUserProgress(progressMap);
-      // NEW: Fetch assignment and submission status
+      // Fetch assignment and submission status
       await fetchAssignmentStatus();
 
       // Find first unwatched lecture
@@ -92,9 +91,9 @@ const SequentialCoursePlayer = () => {
       console.error('Error fetching course data:', error);
       setLoading(false);
     }
-  }, [courseId, token]);
+  }, [courseId, token, user]);
 
-  // NEW: Function to fetch assignment status
+  // Function to fetch assignment status
   const fetchAssignmentStatus = async () => {
     try {
       // Fetch assignment for this course
@@ -135,7 +134,7 @@ const SequentialCoursePlayer = () => {
     fetchCourseData();
   }, [fetchCourseData]);
 
-  // NEW: Effect to periodically check assignment status when videos are completed
+  // Effect to periodically check assignment status when videos are completed
   useEffect(() => {
     if (currentIndex === lectures.length - 1 && userProgress[lectures[currentIndex].id]?.watched) {
       // If all videos are completed, check assignment status every 10 seconds
@@ -148,7 +147,7 @@ const SequentialCoursePlayer = () => {
       
       return () => clearInterval(interval);
     }
-  }, [currentIndex, lectures, userProgress, assignmentStatus]);
+  }, [currentIndex, lectures, userProgress, assignmentStatus, fetchAssignmentStatus]);
 
   const checkUnlockStatus = (lecture, lecturesList = lectures, progress = userProgress) => {
     console.log('Checking unlock status for lecture:', lecture.order);
@@ -302,7 +301,7 @@ const SequentialCoursePlayer = () => {
     return { isCompleted, isCurrent, isAccessible, progress: progress?.progress || 0 };
   };
 
-  // NEW: Function to render assignment status and next steps
+  // Function to render assignment status and next steps
   const renderAssignmentStatus = () => {
     if (!assignment) {
       return (
@@ -358,7 +357,7 @@ const SequentialCoursePlayer = () => {
     return null;
   };
 
-  // NEW: Function to render the main action button
+  // Function to render the main action button
   const renderMainActionButton = () => {
     if (!assignment) {
       return null;
@@ -583,45 +582,188 @@ const SequentialCoursePlayer = () => {
                   </p>
                 </div>
 
-                <div className="progress-summary">
-                  <h5>Your Progress:</h5>
-                  <div className="progress-items">
-                    <div className="progress-item completed">
-                      <span className="status-icon">✅</span>
-                      <span>Video Lectures: {lectures.filter(lecture => userProgress[lecture.id]?.watched).length}/{lectures.length}</span>
-                    </div>
-                    
-                    {/* Assignment Status */}
-                    <div className={`progress-item ${
-                      assignmentStatus?.status === 'approved' ? 'completed' :
-                      assignmentStatus?.status === 'rejected' ? 'rejected' :
-                      assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review' ? 'under-review' : 'pending'
-                    }`}>
-                      {renderAssignmentStatus()}
-                    </div>
-                    
-                    {/* Final Exam Status */}
-                    <div className={`progress-item ${
-                      assignmentStatus?.status === 'approved' ? 'available' : 'locked'
-                    }`}>
-                      <span className="status-icon">
-                        {assignmentStatus?.status === 'approved' ? '🎯' : '🔒'}
-                      </span>
-                      <span>Final Exam: {assignmentStatus?.status === 'approved' ? 'Available' : 'Locked'}</span>
-                    </div>
-                    
-                    {/* Certificate Status */}
-                    <div className="progress-item locked">
-                      <span className="status-icon">🔒</span>
-                      <span>Certificate: Locked</span>
-                    </div>
-                  </div>
-                </div>
+                <CourseCompletionStatus 
+                  courseId={courseId} 
+                  lectures={lectures}
+                  userProgress={userProgress}
+                  assignmentStatus={assignmentStatus}
+                />
               </div>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+// NEW COMPONENT: Course Completion Status
+const CourseCompletionStatus = ({ courseId, lectures, userProgress, assignmentStatus }) => {
+  const { user, token } = useAuth();
+  const [examStatus, setExamStatus] = useState(null);
+  const [certificateStatus, setCertificateStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCompletionStatus();
+  }, [courseId, token, user]);
+
+  const fetchCompletionStatus = async () => {
+    try {
+      // Fetch exam submissions
+      const examsResponse = await fetch(`http://localhost:8000/api/exams/?course_id=${courseId}`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      // Fetch exam submissions for this user
+      const examSubmissionsResponse = await fetch(`http://localhost:8000/api/exam-submissions/`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      
+      // Fetch certificates
+      const certificatesResponse = await fetch(`http://localhost:8000/api/certificates/?course_id=${courseId}`, {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+
+      const [examsData, examSubmissionsData, certificatesData] = await Promise.all([
+        examsResponse.ok ? examsResponse.json() : [],
+        examSubmissionsResponse.ok ? examSubmissionsResponse.json() : [],
+        certificatesResponse.ok ? certificatesResponse.json() : []
+      ]);
+
+      console.log('📊 Completion Status Data:', {
+        exams: examsData,
+        examSubmissions: examSubmissionsData,
+        certificates: certificatesData
+      });
+
+      // Check exam status
+      let examTaken = false;
+      let examScore = null;
+      let examPassed = false;
+      
+      if (examsData.length > 0) {
+        const exam = examsData[0];
+        const myExamSubmission = examSubmissionsData.find(sub => 
+          sub.exam === exam.id && sub.student === user.id
+        );
+        
+        if (myExamSubmission) {
+          examTaken = true;
+          examScore = myExamSubmission.score;
+          examPassed = myExamSubmission.passed;
+        }
+      }
+
+      // Check certificate status
+      const certificateIssued = certificatesData.length > 0;
+
+      setExamStatus({
+        taken: examTaken,
+        score: examScore,
+        passed: examPassed,
+        available: assignmentStatus?.status === 'approved' && !examTaken
+      });
+
+      setCertificateStatus({
+        issued: certificateIssued,
+        available: examPassed
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching completion status:', error);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="progress-summary">
+        <h5>Loading your progress...</h5>
+      </div>
+    );
+  }
+
+  return (
+    <div className="progress-summary">
+      <h5>Your Progress:</h5>
+      <div className="progress-items">
+        {/* Video Lectures Status */}
+        <div className="progress-item completed">
+          <span className="status-icon">✅</span>
+          <span>Video Lectures: {lectures.filter(lecture => userProgress[lecture.id]?.watched).length}/{lectures.length}</span>
+        </div>
+        
+        {/* Assignment Status */}
+        <div className={`progress-item ${
+          assignmentStatus?.status === 'approved' ? 'completed' :
+          assignmentStatus?.status === 'rejected' ? 'rejected' :
+          assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review' ? 'under-review' : 'pending'
+        }`}>
+          <span className="status-icon">
+            {assignmentStatus?.status === 'approved' ? '✅' :
+             assignmentStatus?.status === 'rejected' ? '❌' :
+             assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review' ? '⏳' : '📝'}
+          </span>
+          <span>
+            Assignment: {
+              assignmentStatus?.status === 'approved' ? 'Approved' :
+              assignmentStatus?.status === 'rejected' ? 'Needs Revision' :
+              assignmentStatus?.status === 'submitted' || assignmentStatus?.status === 'under_review' ? 'Under Review' : 'Not Submitted'
+            }
+          </span>
+          {assignmentStatus?.score && (
+            <span className="score">Score: {assignmentStatus.score}</span>
+          )}
+        </div>
+        
+        {/* Final Exam Status */}
+        <div className={`progress-item ${
+          examStatus?.taken ? (examStatus.passed ? 'completed' : 'failed') :
+          examStatus?.available ? 'available' : 'locked'
+        }`}>
+          <span className="status-icon">
+            {examStatus?.taken ? (examStatus.passed ? '✅' : '❌') :
+             examStatus?.available ? '🎯' : '🔒'}
+          </span>
+          <span>
+            Final Exam: {
+              examStatus?.taken ? (examStatus.passed ? `Passed (${examStatus.score}%)` : `Failed (${examStatus.score}%)`) :
+              examStatus?.available ? 'Available' : 'Locked'
+            }
+          </span>
+        </div>
+        
+        {/* Certificate Status */}
+        <div className={`progress-item ${
+          certificateStatus?.issued ? 'completed' :
+          certificateStatus?.available ? 'available' : 'locked'
+        }`}>
+          <span className="status-icon">
+            {certificateStatus?.issued ? '🏆' :
+             certificateStatus?.available ? '✅' : '🔒'}
+          </span>
+          <span>
+            Certificate: {
+              certificateStatus?.issued ? 'Issued' :
+              certificateStatus?.available ? 'Available' : 'Locked'
+            }
+          </span>
+        </div>
+      </div>
+
+      {/* Certificate Download Button */}
+      {certificateStatus?.issued && (
+        <div className="certificate-action">
+          <button 
+            onClick={() => window.location.href = `/certificate/${courseId}`}
+            className="btn-success"
+          >
+            🏆 Download Certificate
+          </button>
+        </div>
+      )}
     </div>
   );
 };

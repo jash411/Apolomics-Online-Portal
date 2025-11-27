@@ -18,13 +18,17 @@ const Certificate = () => {
 
   const fetchCertificateData = async () => {
     try {
-      // Fetch certificate for this course and user
-      const certificateResponse = await fetch(`http://localhost:8000/api/certificates/?course=${courseId}`, {
+      // ✅ FIXED: Use course_id instead of course
+      const certificateResponse = await fetch(`http://localhost:8000/api/certificates/?course_id=${courseId}`, {
         headers: { 'Authorization': `Token ${token}` }
       });
       
+      console.log('🔍 Fetching certificate for course:', courseId);
+      
       if (certificateResponse.ok) {
         const certificates = await certificateResponse.json();
+        console.log('📜 Certificates found:', certificates);
+        
         if (certificates.length > 0) {
           setCertificate(certificates[0]);
           
@@ -37,6 +41,8 @@ const Certificate = () => {
             const courseData = await courseResponse.json();
             setCourse(courseData);
           }
+        } else {
+          console.log('❌ No certificate found for this course');
         }
       }
       setLoading(false);

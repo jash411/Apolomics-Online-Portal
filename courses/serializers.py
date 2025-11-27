@@ -103,14 +103,14 @@ class AssignmentSubmissionSerializer(serializers.ModelSerializer):
 class ChoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Choice
-        fields = ['id', 'choice_text']
+        fields = ['id', 'choice_text','is_correct']
 
 class QuestionSerializer(serializers.ModelSerializer):
-    choices = ChoiceSerializer(many=True, read_only=True)
+    choices = ChoiceSerializer(many=True, read_only=True)  # This includes choices with is_correct
     
     class Meta:
         model = Question
-        fields = '__all__'
+        fields = ['id', 'question_text', 'question_type', 'order', 'score', 'choices']
 
 class ExamSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True)
