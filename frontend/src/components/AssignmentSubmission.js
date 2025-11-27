@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Add useCallback
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './AssignmentSubmission.css';
@@ -17,24 +17,8 @@ const AssignmentSubmission = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchAssignmentData();
-  }, [courseId]);
-
-  // Add this useEffect to periodically check for status updates
-  useEffect(() => {
-    if (submission && (submission.status === 'submitted' || submission.status === 'under_review')) {
-      // Check for status updates every 5 seconds if still under review
-      const interval = setInterval(() => {
-        console.log('🔄 Checking for assignment status update...');
-        fetchAssignmentData();
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [submission, courseId]);
-
-  const fetchAssignmentData = async () => {
+  // Wrap fetchAssignmentData with useCallback to prevent infinite re-renders
+  const fetchAssignmentData = useCallback(async () => {
     try {
       console.log('📋 Fetching assignment data...');
       // Fetch assignment for this course
@@ -78,68 +62,88 @@ const AssignmentSubmission = () => {
       console.error('Error fetching assignment:', error);
       setLoading(false);
     }
+  }, [courseId, token]); // Add dependencies
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchAssignmentData();
+  }, [fetchAssignmentData]); // Now fetchAssignmentData is stable
+
+  // Status check interval - fixed version
+  useEffect(() => {
+    if (submission && (submission.status === 'submitted' || submission.status === 'under_review')) {
+      // Check for status updates every 5 seconds if still under review
+      const interval = setInterval(() => {
+        console.log('🔄 Checking for assignment status update...');
+        fetchAssignmentData();
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [submission, fetchAssignmentData]); // Add fetchAssignmentData to dependencies
+
+  // Rest of your code remains the same...
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      console.log('🔍 DEBUG: Starting submission...');
+      console.log('Assignment ID:', assignment.id);
+      console.log('User ID:', user.id);
+      console.log('Submission text length:', formData.submission_text.length);
+      console.log('Has file:', !!formData.submission_file);
+
+      const submitData = new FormData();
+      submitData.append('assignment', assignment.id);
+      submitData.append('student', user.id);
+      submitData.append('submission_text', formData.submission_text);
+      
+      if (formData.submission_file) {
+        submitData.append('submission_file', formData.submission_file);
+      }
+
+      // Debug: Log FormData contents
+      console.log('📤 FormData contents:');
+      for (let [key, value] of submitData.entries()) {
+        console.log(`   ${key}:`, value);
+      }
+
+      const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+        body: submitData
+      });
+
+      console.log('📥 Response Status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Submission successful:', result);
+        alert('Assignment submitted successfully!');
+        fetchAssignmentData(); // Refresh data
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Submission failed:', response.status, errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          alert('Error submitting assignment: ' + (errorData.error || JSON.stringify(errorData)));
+        } catch {
+          alert(`Error submitting assignment: ${response.status} - ${errorText}`);
+        }
+      }
+    } catch (error) {
+      console.error('💥 Network error:', error);
+      alert('Network error: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true);
-
-  try {
-    console.log('🔍 DEBUG: Starting submission...');
-    console.log('Assignment ID:', assignment.id);
-    console.log('User ID:', user.id);
-    console.log('Submission text length:', formData.submission_text.length);
-    console.log('Has file:', !!formData.submission_file);
-
-    const submitData = new FormData();
-    submitData.append('assignment', assignment.id);
-    submitData.append('student', user.id); // ← ADD THIS LINE
-    submitData.append('submission_text', formData.submission_text);
-    
-    if (formData.submission_file) {
-      submitData.append('submission_file', formData.submission_file);
-    }
-
-    // Debug: Log FormData contents
-    console.log('📤 FormData contents:');
-    for (let [key, value] of submitData.entries()) {
-      console.log(`   ${key}:`, value);
-    }
-
-    const response = await fetch('http://localhost:8000/api/assignment-submissions/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${token}`,
-        // Don't set Content-Type - let browser set it automatically
-      },
-      body: submitData
-    });
-
-    console.log('📥 Response Status:', response.status);
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ Submission successful:', result);
-      alert('Assignment submitted successfully!');
-      fetchAssignmentData(); // Refresh data
-    } else {
-      const errorText = await response.text();
-      console.error('❌ Submission failed:', response.status, errorText);
-      
-      try {
-        const errorData = JSON.parse(errorText);
-        alert('Error submitting assignment: ' + (errorData.error || JSON.stringify(errorData)));
-      } catch {
-        alert(`Error submitting assignment: ${response.status} - ${errorText}`);
-      }
-    }
-  } catch (error) {
-    console.error('💥 Network error:', error);
-    alert('Network error: ' + error.message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  // Rest of your component JSX remains exactly the same...
 
   if (loading) {
     return <div className="loading">Loading assignment...</div>;
